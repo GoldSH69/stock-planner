@@ -76,7 +76,7 @@
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
             <b style="font-size:11pt;">📈 스마트 투자 배분 관리</b>
             <div>
-                <button class="btn btn-main" onclick="fetchPrices()">🔄 시세 갱신</button>
+                <button class="btn btn-main" onclick="fetchPrices(this)">🔄 시세 갱신</button>
                 <button class="btn btn-main" style="background:#10b981" onclick="saveToGist()">💾 Gist 저장</button>
                 <button class="btn" onclick="toggleModal(true)">⚙️ 설정</button>
             </div>
@@ -131,63 +131,38 @@
 
     // 설정 관리
     function saveSettings() {
-        localStorage.setItem('ghToken', document.getElementById('ghToken').value);
+        sessionStorage.setItem('ghToken', document.getElementById('ghToken').value);
         localStorage.setItem('gistId', document.getElementById('gistId').value);
         toggleModal(false);
         loadFromGist();
     }
 
-    // 시세 갱신 (다중 프록시 및 코드 보정 반영)
-    // 시세 갱신 (시각적 피드백 및 버튼 비활성화 추가)
-    async function fetchPrices() {
-        // [수정포인트 1] 클릭된 버튼의 상태를 변경하여 중복 클릭 방지
-        const btn = event.target;
+    async function fetchPrices(btn){
         const originalText = btn.innerText;
-        btn.innerText = "🔄 시세 갱신 중..."; // 텍스트 변경
-        btn.disabled = true; // 버튼 비활성화
-        btn.style.opacity = "0.6"; // 시각적으로 흐리게
-
-        const proxies = [
-            (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
-            (url) => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`
-        ];
-
+        btn.innerText = "🔄 시세 갱신 중...";
+        btn.disabled = true;
+    
         for (let s of stocks) {
             if (!s.code) continue;
-            let fCode = s.code.toUpperCase().trim();
-            if (!fCode.includes('.')) fCode += '.KS'; 
-            const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${fCode}`;
-            
-            for (let getProxy of proxies) {
-                try {
-                    const res = await fetch(getProxy(targetUrl));
-                    let data;
-                    if (getProxy.toString().includes('allorigins')) {
-                        const json = await res.json();
-                        data = JSON.parse(json.contents);
-                    } else {
-                        data = await res.json();
-                    }
-                    if (data.chart.result) {
-                        s.curr = data.chart.result[0].meta.regularMarketPrice;
-                        break; 
-                    }
-                } catch (e) { continue; }
+    
+            try {
+                const res = await fetch("https://etf-stock.ashywindy.workers.dev?code=" + s.code);
+                const data = await res.json();
+                s.curr = Number(data.price) || 0;
+            } catch(e){
+                console.log("시세 실패", s.code);
             }
         }
-
-        // [수정포인트 2] 작업 완료 후 버튼 상태 복구
+    
         calculate();
-        btn.innerText = originalText; // 원래 텍스트(🔄 시세 갱신)로 복구
-        btn.disabled = false; // 버튼 다시 활성화
-        btn.style.opacity = "1";
-        
-        alert("시세 갱신이 완료되었습니다.");
+    
+        btn.innerText = originalText;
+        btn.disabled = false;
     }
 
     // Gist 연동
     async function loadFromGist() {
-        const t = localStorage.getItem('ghToken'), id = localStorage.getItem('gistId');
+        const t = sessionStorage.getItem('ghToken'), id = localStorage.getItem('gistId');
         if (!t || !id) return;
         try {
             const res = await fetch(`https://api.github.com/gists/${id}`, { headers: {'Authorization': `token ${t}`} });
@@ -205,7 +180,7 @@
 
     async function saveToGist() {
         // 1. 설정값 및 상태 표시바 준비
-        const t = localStorage.getItem('ghToken');
+        const t = sessionStorage.getItem('ghToken');
         let id = localStorage.getItem('gistId'); // let으로 선언하여 신규 ID 할당 가능하게 함
         const statusEl = document.getElementById('syncStatus');
         
@@ -303,7 +278,7 @@
             tr.innerHTML = `
                 <td><input type="text" value="${s.code}" class="input-center" onchange="upd(${i},'code',this.value)"></td>
                 <td><input type="text" value="${s.name}" class="input-center" onchange="upd(${i},'name',this.value)"></td>
-                <td><input type="text" value="${fN(s.buy)}" oninput="updF(${i},'buy',this)"></td>
+                <td><input type="text" value="${fN(s.buy)}" oninput="updRaw(${i},'buy',this.value)" onblur="this.value=fN(pN(this.value))"></td>
                 <td><input type="text" value="${fN(s.qty)}" oninput="updF(${i},'qty',this)"></td>
                 <td>${fN(s.curr)}</td><td><b>${fN(ev)}</b></td>
                 <td class="${pClass}">${pRate}%</td><td>${weight}%</td>
@@ -329,9 +304,10 @@
     function updF(i, k, el) { let v = pN(el.value); el.value = fN(v); stocks[i][k] = v; calculate(); }
     function addStock() { stocks.push({code:'', name:'', buy:0, qty:0, curr:0, target:0}); calculate(); }
     function del(i) { if(confirm("삭제하시겠습니까?")) { stocks.splice(i, 1); calculate(); } }
-
+    function updRaw(i,k,v){ stocks[i][k] = pN(v); calculate(); }
+    
     window.onload = () => {
-        document.getElementById('ghToken').value = localStorage.getItem('ghToken') || "";
+        document.getElementById('ghToken').value = sessionStorage.getItem('ghToken') || "";
         document.getElementById('gistId').value = localStorage.getItem('gistId') || "";
         loadFromGist();
     };
