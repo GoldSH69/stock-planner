@@ -2,137 +2,174 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>실시간 자산 배분 매니저</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>스마트 투자 배분 매니저</title>
     <style>
-        :root { --primary: #2563eb; --accent: #f59e0b; --bg: #f1f5f9; }
-        body { font-family: 'Pretendard', sans-serif; background: var(--bg); padding: 20px; font-size: 14px; }
-        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
-        .summary-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
-        .stat-box { padding: 10px; background: #f8fafc; border-radius: 8px; text-align: center; border: 1px solid #e2e8f0; }
-        .label { display: block; font-size: 12px; color: #64748b; margin-bottom: 4px; }
-        .value { font-weight: 700; color: #1e293b; font-size: 15px; }
+        /* 2. 폰트 설정 (맑은 고딕, 9pt) */
+        body { 
+            font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; 
+            font-size: 9pt; 
+            background: #f4f7f6; 
+            margin: 0; padding: 10px;
+        }
+        /* 1. 모바일 최적화 */
+        .container { width: 100%; max-width: 1200px; margin: 0 auto; }
+        .card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 15px; }
+        .summary-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); 
+            gap: 8px; 
+        }
+        .stat-box { padding: 8px; background: #fcfcfc; border: 1px solid #eee; text-align: center; border-radius: 5px; }
+        .label { display: block; font-size: 8pt; color: #666; margin-bottom: 3px; }
+        .value { font-weight: bold; font-size: 10pt; color: #333; }
         
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th { background: #f8fafc; padding: 12px; border-bottom: 2px solid #e2e8f0; color: #475569; }
-        td { padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: center; }
+        /* 테이블 반응형 (가로 스크롤) */
+        .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        table { width: 100%; border-collapse: collapse; min-width: 800px; }
+        th { background: #eee; padding: 8px; border: 1px solid #ddd; font-size: 9pt; }
+        td { padding: 8px; border: 1px solid #ddd; text-align: center; }
         
-        input { width: 85%; padding: 5px; border: 1px solid #cbd5e1; border-radius: 4px; text-align: center; }
-        .btn { padding: 8px 16px; border-radius: 6px; cursor: pointer; border: none; font-weight: 600; }
-        .btn-add { background: var(--primary); color: white; margin-top: 10px; }
-        .btn-refresh { background: #10b981; color: white; }
-        .btn-del { background: #ef4444; color: white; padding: 4px 8px; font-size: 11px; }
-        .positive { color: #ef4444; } .negative { color: #3b82f6; }
+        /* 4. 숫자 입력 및 텍스트 설정 */
+        input { 
+            width: 90%; padding: 4px; border: 1px solid #ccc; border-radius: 3px; 
+            font-size: 9pt; text-align: right; font-family: 'Malgun Gothic';
+        }
+        .btn { padding: 6px 12px; cursor: pointer; border: none; border-radius: 4px; font-size: 9pt; }
+        .btn-refresh { background: #27ae60; color: white; }
+        .btn-add { background: #2980b9; color: white; margin-top: 10px; }
+        .positive { color: #d63031; font-weight: bold; }
+        .negative { color: #0984e3; font-weight: bold; }
     </style>
 </head>
 <body>
 
-<div class="card">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-        <h2 style="margin:0;">📊 투자 자산 배분표</h2>
-        <button class="btn btn-refresh" onclick="updateAllPrices()">🔄 실시간 시세 갱신</button>
+<div class="container">
+    <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <b style="font-size: 11pt;">📊 투자 자산 배분표</b>
+            <button class="btn btn-refresh" onclick="updateAllPrices()">🔄 실시간 시세 갱신</button>
+        </div>
+        <div class="summary-grid">
+            <div class="stat-box"><span class="label">총 투자 금액</span><input type="text" id="totalBudget" value="20,000,000" oninput="handleInput(this); saveAndCalc();"></div>
+            <div class="stat-box"><span class="label">현 투자 금액</span><input type="text" id="currentInvested" value="10,000,000" oninput="handleInput(this); saveAndCalc();"></div>
+            <div class="stat-box"><span class="label">투자 잔여 금액</span><div class="value" id="remainBudget">0</div></div>
+            <div class="stat-box"><span class="label">현재 월 / 잔여 월</span><div class="value" id="monthInfo"></div></div>
+            <div class="stat-box"><span class="label">월별 투자가능액</span><div class="value" id="monthlyAvail" style="color:#2980b9">0</div></div>
+        </div>
     </div>
-    <div class="summary-grid">
-        <div class="stat-box"><span class="label">총 투자 예산</span><input type="number" id="totalBudget" value="20000000" oninput="saveAndCalc()"></div>
-        <div class="stat-box"><span class="label">현 평가 금액</span><div class="value" id="currentEvalTotal">0</div></div>
-        <div class="stat-box"><span class="label">투자 잔여금</span><div class="value" id="remainBudget">0</div></div>
-        <div class="stat-box"><span class="label">현재 월</span><div class="value" id="currentMonth"></div></div>
-        <div class="stat-box"><span class="label">월별 투자가능액</span><div class="value" id="monthlyAvail" style="color:var(--primary)">0</div></div>
-    </div>
-</div>
 
-<div class="card">
-    <table>
-        <thead>
-            <tr>
-                <th>종목코드</th><th>종목명</th><th>매입단가</th><th>수량</th><th>현재가</th><th>평가액</th><th>손익</th><th>비중</th><th>목표%</th><th>추가매수액</th><th>관리</th>
-            </tr>
-        </thead>
-        <tbody id="stockBody"></tbody>
-    </table>
-    <button class="btn btn-add" onclick="addRow()">+ 종목 추가</button>
+    <div class="card">
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>종목코드</th><th>종목명</th><th>총매입금액</th><th>수량</th><th>현재가</th><th>평가액</th><th>손익</th><th>비중</th><th>목표%</th><th>추가매수액</th><th>삭제</th>
+                    </tr>
+                </thead>
+                <tbody id="stockBody"></tbody>
+            </table>
+        </div>
+        <button class="btn btn-add" onclick="addRow()">+ 종목 추가</button>
+    </div>
 </div>
 
 <script>
-    let stocks = JSON.parse(localStorage.getItem('myPortfolio')) || [
-        { code: '005930.KS', name: '삼성전자', buyPrice: 70000, qty: 10, currentPrice: 0, targetWeight: 30 }
+    // 상태 관리
+    let stocks = JSON.parse(localStorage.getItem('myStocks')) || [
+        { code: '005930.KS', name: '삼성전자', totalBuy: 1000000, qty: 15, currentPrice: 0, targetWeight: 30 }
     ];
 
-    const currentMonth = new Date().getMonth() + 1;
-    document.getElementById('currentMonth').innerText = currentMonth + "월";
-
-    // 야후 파이낸스 가격 호출 (CORS 우회를 위해 프록시 사용 시 권장되나 여기선 기본 fetch 시도)
-    async function getLivePrice(code) {
-        try {
-            const res = await fetch(`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${code}`);
-            const data = await res.json();
-            return data.quoteResponse.result[0].regularMarketPrice;
-        } catch (e) {
-            console.error(code + " 가격 로드 실패");
-            return 0;
-        }
+    // 4. 숫자 포맷터 (콤마 추가)
+    function formatNum(num) { return Math.floor(num).toLocaleString(); }
+    function parseNum(str) { return parseFloat(str.replace(/,/g, '')) || 0; }
+    
+    function handleInput(el) {
+        let val = parseNum(el.value);
+        el.value = formatNum(val);
     }
 
+    // 5. 실시간 시세 갱신 (CORS 대응)
     async function updateAllPrices() {
         for (let s of stocks) {
-            const price = await getLivePrice(s.code);
-            if (price > 0) s.currentPrice = price;
+            if (!s.code) continue;
+            try {
+                // Yahoo Finance API 직접 호출 시도 (네트워크 환경에 따라 프록시 필요할 수 있음)
+                const res = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${s.code}`);
+                const data = await res.json();
+                s.currentPrice = data.chart.result[0].meta.regularMarketPrice;
+            } catch (e) {
+                console.error(s.code + " 로드 실패");
+            }
         }
         saveAndCalc();
     }
 
     function saveAndCalc() {
-        localStorage.setItem('myPortfolio', JSON.stringify(stocks));
-        localStorage.setItem('totalBudget', document.getElementById('totalBudget').value);
-        render();
-    }
+        const totalBudget = parseNum(document.getElementById('totalBudget').value);
+        const currentInvested = parseNum(document.getElementById('currentInvested').value);
+        
+        localStorage.setItem('myStocks', JSON.stringify(stocks));
+        localStorage.setItem('totalBudget', totalBudget);
+        localStorage.setItem('currentInvested', currentInvested);
 
-    function render() {
+        const now = new Date();
+        const month = now.getMonth() + 1;
+        const remainMonths = 12 - month;
+        document.getElementById('monthInfo').innerText = `${month}월 / ${remainMonths}개월`;
+
+        // 7, 8, 9. 종목별 계산
+        let totalEval = 0;
+        stocks.forEach(s => {
+            s.evalAmount = (s.currentPrice || 0) * s.qty; // 7. 평가액
+            s.profit = s.evalAmount - s.totalBuy; // 8. 손익
+            totalEval += s.evalAmount;
+        });
+
+        // 상단 요약 바 계산
+        const remain = totalBudget - currentInvested;
+        const monthlyAvail = remainMonths > 0 ? (remain / remainMonths) : remain;
+        
+        document.getElementById('remainBudget').innerText = formatNum(remain);
+        document.getElementById('monthlyAvail').innerText = formatNum(monthlyAvail);
+
+        // 9. 비중 및 10. 추가매수액 렌더링
         const body = document.getElementById('stockBody');
-        const totalBudget = parseFloat(document.getElementById('totalBudget').value) || 0;
         body.innerHTML = '';
 
-        let totalEval = stocks.reduce((acc, s) => acc + (s.currentPrice * s.qty), 0);
-        document.getElementById('currentEvalTotal').innerText = Math.floor(totalEval).toLocaleString() + "원";
-        
-        const remain = totalBudget - totalEval;
-        document.getElementById('remainBudget').innerText = Math.floor(remain).toLocaleString() + "원";
-
-        const remainMonths = 12 - currentMonth;
-        const monthlyAvail = remainMonths > 0 ? (remain / remainMonths) : remain;
-        document.getElementById('monthlyAvail').innerText = Math.floor(monthlyAvail).toLocaleString() + "원";
-
         stocks.forEach((s, idx) => {
-            const evalAmount = s.currentPrice * s.qty;
-            const profitRate = s.buyPrice > 0 ? ((s.currentPrice - s.buyPrice) / s.buyPrice * 100).toFixed(2) : 0;
-            const currentWeight = totalEval > 0 ? ((evalAmount / totalEval) * 100).toFixed(1) : 0;
-            const buyTarget = monthlyAvail * (s.targetWeight / 100);
+            const weight = totalEval > 0 ? (s.evalAmount / totalEval * 100).toFixed(1) : 0; // 9. 비중
+            
+            // 10. 추가매수액 로직: (목표비중 - 현재비중)을 월별 투자가능액에서 배분
+            // 단순 계산을 위해 (월별투자가능액 * 목표비중%)로 구현하거나 상황에 맞게 조정 가능
+            const targetBuy = monthlyAvail * (s.targetWeight / 100);
 
             const row = document.createElement('tr');
             row.innerHTML = `
-                <td><input type="text" value="${s.code}" onchange="updateStock(${idx}, 'code', this.value)"></td>
-                <td><input type="text" value="${s.name}" onchange="updateStock(${idx}, 'name', this.value)"></td>
-                <td><input type="number" value="${s.buyPrice}" onchange="updateStock(${idx}, 'buyPrice', this.value)"></td>
-                <td><input type="number" value="${s.qty}" onchange="updateStock(${idx}, 'qty', this.value)"></td>
-                <td>${s.currentPrice.toLocaleString()}</td>
-                <td>${Math.floor(evalAmount).toLocaleString()}</td>
-                <td class="${profitRate >= 0 ? 'positive' : 'negative'}">${profitRate}%</td>
-                <td>${currentWeight}%</td>
-                <td><input type="number" value="${s.targetWeight}" onchange="updateStock(${idx}, 'targetWeight', this.value)"></td>
-                <td style="font-weight:bold; color:var(--primary)">${Math.floor(buyTarget).toLocaleString()}</td>
-                <td><button class="btn btn-del" onclick="removeRow(${idx})">삭제</button></td>
+                <td><input type="text" value="${s.code}" onchange="updateVal(${idx}, 'code', this.value)" style="text-align:center"></td>
+                <td><input type="text" value="${s.name}" onchange="updateVal(${idx}, 'name', this.value)" style="text-align:center"></td>
+                <td><input type="text" value="${formatNum(s.totalBuy)}" oninput="handleInput(this)" onchange="updateVal(${idx}, 'totalBuy', parseNum(this.value))"></td>
+                <td><input type="text" value="${formatNum(s.qty)}" oninput="handleInput(this)" onchange="updateVal(${idx}, 'qty', parseNum(this.value))"></td>
+                <td>${formatNum(s.currentPrice)}</td>
+                <td><b>${formatNum(s.evalAmount)}</b></td>
+                <td class="${s.profit >= 0 ? 'positive' : 'negative'}">${formatNum(s.profit)}</td>
+                <td>${weight}%</td>
+                <td><input type="text" value="${s.targetWeight}" onchange="updateVal(${idx}, 'targetWeight', parseNum(this.value))"></td>
+                <td style="color:#2980b9; font-weight:bold;">${formatNum(targetBuy)}</td>
+                <td><button onclick="removeRow(${idx})" class="btn" style="background:#95a5a6; color:white; padding:2px 5px;">X</button></td>
             `;
             body.appendChild(row);
         });
     }
 
-    function updateStock(idx, key, val) {
-        stocks[idx][key] = key === 'code' || key === 'name' ? val : parseFloat(val);
+    function updateVal(idx, key, val) {
+        stocks[idx][key] = val;
         saveAndCalc();
     }
 
     function addRow() {
-        stocks.push({ code: '', name: '', buyPrice: 0, qty: 0, currentPrice: 0, targetWeight: 0 });
-        render();
+        stocks.push({ code: '', name: '', totalBuy: 0, qty: 0, currentPrice: 0, targetWeight: 0 });
+        saveAndCalc();
     }
 
     function removeRow(idx) {
@@ -140,11 +177,15 @@
         saveAndCalc();
     }
 
-    // 초기화
-    if(localStorage.getItem('totalBudget')) {
-        document.getElementById('totalBudget').value = localStorage.getItem('totalBudget');
-    }
-    updateAllPrices();
+    // 초기값 복구 및 실행
+    window.onload = () => {
+        if(localStorage.getItem('totalBudget')) 
+            document.getElementById('totalBudget').value = formatNum(localStorage.getItem('totalBudget'));
+        if(localStorage.getItem('currentInvested')) 
+            document.getElementById('currentInvested').value = formatNum(localStorage.getItem('currentInvested'));
+        saveAndCalc();
+        updateAllPrices(); // 시작 시 가격 갱신 시도
+    };
 </script>
 
 </body>
