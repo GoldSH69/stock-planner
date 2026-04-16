@@ -142,7 +142,7 @@ async function fetchPrices(btn){
         if(!s.code) continue;
 
         try{
-            const res = await fetch(`https://YOUR_WORKER_URL?code=${s.code}`);
+            const res = await fetch(`https://etf-stock.ashywindy.workers.dev?code=${s.code}`);
             const data = await res.json();
             s.curr = Number(data.price) || 0;
         }catch(e){
