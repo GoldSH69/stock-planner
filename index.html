@@ -138,29 +138,15 @@ async function getToken(){
 async function fetchPrices(btn){
     btn.disabled=true;
 
-    if(!TOKEN) await getToken();
-
     for(let s of stocks){
         if(!s.code) continue;
 
         try{
-            const res=await fetch(
-                `https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-price?fid_cond_mrkt_div_code=J&fid_input_iscd=${s.code}`,
-                {
-                    headers:{
-                        authorization:`Bearer ${TOKEN}`,
-                        appkey:"YOUR_APP_KEY",
-                        appsecret:"YOUR_APP_SECRET",
-                        tr_id:"FHKST01010100"
-                    }
-                }
-            );
-
-            const d=await res.json();
-            s.curr=Number(d.output.stck_prpr)||0;
-
+            const res = await fetch(`https://YOUR_WORKER_URL?code=${s.code}`);
+            const data = await res.json();
+            s.curr = Number(data.price) || 0;
         }catch(e){
-            console.log("실패",s.code);
+            console.log("실패", s.code);
         }
     }
 
