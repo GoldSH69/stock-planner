@@ -108,16 +108,54 @@
     }
 
     async function fetchPrices() {
-        const proxy = 'https://api.allorigins.win/get?url=';
+        // 사용할 수 있는 프록시 서버 목록 (다중화)
+        const proxies = [
+        (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+        (url) => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
+        (url) => `https://thingproxy.freeboard.io/fetch/${url}`
+        ];
+
         for (let s of stocks) {
             if (!s.code) continue;
-            try {
-                const target = `https://query1.finance.yahoo.com/v8/finance/chart/${s.code}`;
-                const res = await fetch(proxy + encodeURIComponent(target));
-                const json = await res.json();
-                const data = JSON.parse(json.contents);
-                s.curr = data.chart.result[0].meta.regularMarketPrice;
-            } catch (e) { console.error(s.code, "에러"); }
+            
+            // 종목코드 보정 (.KR -> .KS 등)
+            let formattedCode = s.code.toUpperCase().trim();
+            if (formattedCode.endsWith('.KR')) formattedCode = formattedCode.replace('.KR', '.KS');
+            if (!formattedCode.includes('.')) formattedCode += '.KS'; // 기본 코스피 가정
+    
+            const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${formattedCode}`;
+            let success = false;
+    
+            // 성공할 때까지 프록시 순회
+            for (let getProxyUrl of proxies) {
+                try {
+                    const res = await fetch(getProxyUrl(targetUrl));
+                    if (!res.ok) throw new Error();
+                    
+                    let data;
+                    // allorigins는 응답 구조가 다르므로 체크
+                    if (getProxyUrl.toString().includes('allorigins')) {
+                        const json = await res.json();
+                        data = JSON.parse(json.contents);
+                    } else {
+                        data = await res.json();
+                    }
+    
+                    if (data.chart && data.chart.result) {
+                        s.curr = data.chart.result[0].meta.regularMarketPrice;
+                        success = true;
+                        console.log(`${formattedCode} 가격 로드 성공`);
+                        break; // 성공 시 다음 프록시 시도 안 함
+                    }
+                } catch (e) {
+                    console.warn(`프록시 시도 실패, 다음 서버 시도 중...`);
+                    continue;
+                }
+            }
+    
+            if (!success) {
+                console.error(`${formattedCode}: 모든 프록시 서버가 응답하지 않음.`);
+            }
         }
         calculate();
     }
