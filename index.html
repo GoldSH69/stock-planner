@@ -142,17 +142,14 @@
         btn.innerText = "🔄 시세 갱신 중...";
         btn.disabled = true;
     
-        for (let s of stocks) {
-            if (!s.code) continue;
-    
-            try {
-                const res = await fetch("https://etf-stock.ashywindy.workers.dev?code=" + s.code);
-                const data = await res.json();
-                s.curr = Number(data.price) || 0;
-            } catch(e){
-                console.log("시세 실패", s.code);
-            }
-        }
+        const codes = stocks.map(s => s.code).join(",");
+
+        const res = await fetch(`https://YOUR_WORKER_URL?codes=${codes}`);
+        const data = await res.json();
+        
+        stocks.forEach(s => {
+          s.curr = data[s.code] || 0;
+        });
     
         calculate();
     
