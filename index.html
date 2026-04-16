@@ -278,7 +278,7 @@
             tr.innerHTML = `
                 <td><input type="text" value="${s.code}" class="input-center" onchange="upd(${i},'code',this.value)"></td>
                 <td><input type="text" value="${s.name}" class="input-center" onchange="upd(${i},'name',this.value)"></td>
-                <td><input type="text" value="${fN(s.buy)}" oninput="updRaw(${i},'buy',this.value)" onblur="this.value=fN(pN(this.value)); calculate();"></td>
+                <td><input type="text" value="${fN(s.buy)}" onchange="updRaw(${i},'buy',this.value)"></td>
                 <td><input type="text" value="${fN(s.qty)}" oninput="updF(${i},'qty',this)"></td>
                 <td>${fN(s.curr)}</td><td><b>${fN(ev)}</b></td>
                 <td class="${pClass}">${pRate}%</td><td>${weight}%</td>
