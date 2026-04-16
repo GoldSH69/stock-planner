@@ -204,43 +204,75 @@
     }
 
     async function saveToGist() {
-    const t = localStorage.getItem('ghToken'), id = localStorage.getItem('gistId');
-    const statusEl = document.getElementById('syncStatus');
-    
-    if (!t || !id) return alert("⚙️ 설정에서 토큰과 Gist ID를 먼저 입력하세요.");
+        // 1. 설정값 및 상태 표시바 준비
+        const t = localStorage.getItem('ghToken');
+        let id = localStorage.getItem('gistId'); // let으로 선언하여 신규 ID 할당 가능하게 함
+        const statusEl = document.getElementById('syncStatus');
+        
+        if (!t) return alert("⚙️ 설정에서 GitHub 토큰을 먼저 입력하세요.");
 
-    // 상태 표시: 로딩
-    statusEl.style.display = 'block';
-    statusEl.style.background = '#e8f0fa';
-    statusEl.style.color = '#2563eb';
-    statusEl.innerText = "⬆️ GitHub Gist에 데이터 백업 중...";
+        // 2. [핵심] ID 유무에 따른 분기 처리 (프롬프트 매니저 로직)
+        const method = id ? 'PATCH' : 'POST';
+        const url = id ? `https://api.github.com/gists/${id}` : 'https://api.github.com/gists';
 
-    const payload = { files: { [FILENAME]: { content: JSON.stringify({
-        stocks, 
-        totalBudget: pN(document.getElementById('totalBudget').value),
-        currentInvested: pN(document.getElementById('currentInvested').value),
-        memo: document.getElementById('memoArea').value,
-        lastSaved: new Date().toLocaleString() // 저장 시간 기록
-    }) } } };
+        // 시각적 피드백 시작
+        statusEl.style.display = 'block';
+        statusEl.style.background = '#e8f0fa';
+        statusEl.style.color = '#2563eb';
+        statusEl.innerText = id ? "⬆️ 기존 Gist 업데이트 중..." : "🆕 새 Gist 생성 및 저장 중...";
 
-    try {
-        const res = await fetch(`https://api.github.com/gists/${id}`, {
-            method: 'PATCH', 
-            headers: {'Authorization': `token ${t}`, 'Content-Type': 'application/json'},
-            body: JSON.stringify(payload)
-        });
-        if(res.ok) {
-            statusEl.style.background = '#e6f5ee';
-            statusEl.style.color = '#10b981';
-            statusEl.innerText = "✅ Gist 저장 완료 (" + new Date().toLocaleTimeString() + ")";
-            setTimeout(() => { statusEl.style.display = 'none'; }, 3000);
+        // 3. 전송할 데이터 구조화
+        const payload = {
+            description: "Stock Asset Master Portfolio",
+            public: false,
+            files: {
+                [FILENAME]: {
+                    content: JSON.stringify({
+                        stocks,
+                        totalBudget: pN(document.getElementById('totalBudget').value),
+                        currentInvested: pN(document.getElementById('currentInvested').value),
+                        memo: document.getElementById('memoArea').value,
+                        lastUpdated: new Date().toLocaleString()
+                    }, null, 2)
+                }
+            }
+        };
+
+        try {
+            // 4. API 호출
+            const res = await fetch(url, {
+                method: method,
+                headers: {
+                    'Authorization': `token ${t}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+                const result = await res.json();
+                
+                // 5. [핵심] 신규 생성 시 발급된 ID를 로컬에 저장
+                if (!id && result.id) {
+                    localStorage.setItem('gistId', result.id);
+                    document.getElementById('gistId').value = result.id; // 설정창 UI도 갱신
+                }
+
+                statusEl.style.background = '#e6f5ee';
+                statusEl.style.color = '#10b981';
+                statusEl.innerText = `✅ ${id ? '업데이트' : '신규 생성'} 완료 (${new Date().toLocaleTimeString()})`;
+                setTimeout(() => { statusEl.style.display = 'none'; }, 3000);
+            } else {
+                const errData = await res.json();
+                throw new Error(errData.message);
+            }
+        } catch (e) {
+            console.error("Gist 저장 실패:", e);
+            statusEl.style.background = '#fce8e8';
+            statusEl.style.color = '#ef4444';
+            statusEl.innerText = "❌ 저장 실패: " + e.message;
         }
-    } catch(e) { 
-        statusEl.style.background = '#fce8e8';
-        statusEl.style.color = '#ef4444';
-        statusEl.innerText = "❌ 저장 실패: 네트워크 확인 필요";
     }
-}
 
     // 핵심 계산 로직
     function calculate() {
