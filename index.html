@@ -126,7 +126,7 @@
     // 유틸리티: 콤마 포맷
     function fN(n) { return Math.floor(n).toLocaleString(); }
     function pN(s) { return parseFloat(String(s).replace(/,/g, '')) || 0; }
-    function uiFormat(el) { el.value = fN(pN(el.value)); calculate(); }
+    function uiFormat(el) { el.value = fN(pN(el.value)); }
     function toggleModal(s) { document.getElementById('configModal').style.display = s?'block':'none'; document.getElementById('overlay').style.display = s?'block':'none'; }
 
     // 설정 관리
