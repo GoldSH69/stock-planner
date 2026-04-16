@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>실시간 자산 배분 매니저</title>
+    <style>
+        :root { --primary: #2563eb; --accent: #f59e0b; --bg: #f1f5f9; }
+        body { font-family: 'Pretendard', sans-serif; background: var(--bg); padding: 20px; font-size: 14px; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        .summary-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+        .stat-box { padding: 10px; background: #f8fafc; border-radius: 8px; text-align: center; border: 1px solid #e2e8f0; }
+        .label { display: block; font-size: 12px; color: #64748b; margin-bottom: 4px; }
+        .value { font-weight: 700; color: #1e293b; font-size: 15px; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th { background: #f8fafc; padding: 12px; border-bottom: 2px solid #e2e8f0; color: #475569; }
+        td { padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: center; }
+        
+        input { width: 85%; padding: 5px; border: 1px solid #cbd5e1; border-radius: 4px; text-align: center; }
+        .btn { padding: 8px 16px; border-radius: 6px; cursor: pointer; border: none; font-weight: 600; }
+        .btn-add { background: var(--primary); color: white; margin-top: 10px; }
+        .btn-refresh { background: #10b981; color: white; }
+        .btn-del { background: #ef4444; color: white; padding: 4px 8px; font-size: 11px; }
+        .positive { color: #ef4444; } .negative { color: #3b82f6; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h2 style="margin:0;">📊 투자 자산 배분표</h2>
+        <button class="btn btn-refresh" onclick="updateAllPrices()">🔄 실시간 시세 갱신</button>
+    </div>
+    <div class="summary-grid">
+        <div class="stat-box"><span class="label">총 투자 예산</span><input type="number" id="totalBudget" value="20000000" oninput="saveAndCalc()"></div>
+        <div class="stat-box"><span class="label">현 평가 금액</span><div class="value" id="currentEvalTotal">0</div></div>
+        <div class="stat-box"><span class="label">투자 잔여금</span><div class="value" id="remainBudget">0</div></div>
+        <div class="stat-box"><span class="label">현재 월</span><div class="value" id="currentMonth"></div></div>
+        <div class="stat-box"><span class="label">월별 투자가능액</span><div class="value" id="monthlyAvail" style="color:var(--primary)">0</div></div>
+    </div>
+</div>
+
+<div class="card">
+    <table>
+        <thead>
+            <tr>
+                <th>종목코드</th><th>종목명</th><th>매입단가</th><th>수량</th><th>현재가</th><th>평가액</th><th>손익</th><th>비중</th><th>목표%</th><th>추가매수액</th><th>관리</th>
+            </tr>
+        </thead>
+        <tbody id="stockBody"></tbody>
+    </table>
+    <button class="btn btn-add" onclick="addRow()">+ 종목 추가</button>
+</div>
+
+<script>
+    let stocks = JSON.parse(localStorage.getItem('myPortfolio')) || [
+        { code: '005930.KS', name: '삼성전자', buyPrice: 70000, qty: 10, currentPrice: 0, targetWeight: 30 }
+    ];
+
+    const currentMonth = new Date().getMonth() + 1;
+    document.getElementById('currentMonth').innerText = currentMonth + "월";
+
+    // 야후 파이낸스 가격 호출 (CORS 우회를 위해 프록시 사용 시 권장되나 여기선 기본 fetch 시도)
+    async function getLivePrice(code) {
+        try {
+            const res = await fetch(`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${code}`);
+            const data = await res.json();
+            return data.quoteResponse.result[0].regularMarketPrice;
+        } catch (e) {
+            console.error(code + " 가격 로드 실패");
+            return 0;
+        }
+    }
+
+    async function updateAllPrices() {
+        for (let s of stocks) {
+            const price = await getLivePrice(s.code);
+            if (price > 0) s.currentPrice = price;
+        }
+        saveAndCalc();
+    }
+
+    function saveAndCalc() {
+        localStorage.setItem('myPortfolio', JSON.stringify(stocks));
+        localStorage.setItem('totalBudget', document.getElementById('totalBudget').value);
+        render();
+    }
+
+    function render() {
+        const body = document.getElementById('stockBody');
+        const totalBudget = parseFloat(document.getElementById('totalBudget').value) || 0;
+        body.innerHTML = '';
+
+        let totalEval = stocks.reduce((acc, s) => acc + (s.currentPrice * s.qty), 0);
+        document.getElementById('currentEvalTotal').innerText = Math.floor(totalEval).toLocaleString() + "원";
+        
+        const remain = totalBudget - totalEval;
+        document.getElementById('remainBudget').innerText = Math.floor(remain).toLocaleString() + "원";
+
+        const remainMonths = 12 - currentMonth;
+        const monthlyAvail = remainMonths > 0 ? (remain / remainMonths) : remain;
+        document.getElementById('monthlyAvail').innerText = Math.floor(monthlyAvail).toLocaleString() + "원";
+
+        stocks.forEach((s, idx) => {
+            const evalAmount = s.currentPrice * s.qty;
+            const profitRate = s.buyPrice > 0 ? ((s.currentPrice - s.buyPrice) / s.buyPrice * 100).toFixed(2) : 0;
+            const currentWeight = totalEval > 0 ? ((evalAmount / totalEval) * 100).toFixed(1) : 0;
+            const buyTarget = monthlyAvail * (s.targetWeight / 100);
+
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><input type="text" value="${s.code}" onchange="updateStock(${idx}, 'code', this.value)"></td>
+                <td><input type="text" value="${s.name}" onchange="updateStock(${idx}, 'name', this.value)"></td>
+                <td><input type="number" value="${s.buyPrice}" onchange="updateStock(${idx}, 'buyPrice', this.value)"></td>
+                <td><input type="number" value="${s.qty}" onchange="updateStock(${idx}, 'qty', this.value)"></td>
+                <td>${s.currentPrice.toLocaleString()}</td>
+                <td>${Math.floor(evalAmount).toLocaleString()}</td>
+                <td class="${profitRate >= 0 ? 'positive' : 'negative'}">${profitRate}%</td>
+                <td>${currentWeight}%</td>
+                <td><input type="number" value="${s.targetWeight}" onchange="updateStock(${idx}, 'targetWeight', this.value)"></td>
+                <td style="font-weight:bold; color:var(--primary)">${Math.floor(buyTarget).toLocaleString()}</td>
+                <td><button class="btn btn-del" onclick="removeRow(${idx})">삭제</button></td>
+            `;
+            body.appendChild(row);
+        });
+    }
+
+    function updateStock(idx, key, val) {
+        stocks[idx][key] = key === 'code' || key === 'name' ? val : parseFloat(val);
+        saveAndCalc();
+    }
+
+    function addRow() {
+        stocks.push({ code: '', name: '', buyPrice: 0, qty: 0, currentPrice: 0, targetWeight: 0 });
+        render();
+    }
+
+    function removeRow(idx) {
+        stocks.splice(idx, 1);
+        saveAndCalc();
+    }
+
+    // 초기화
+    if(localStorage.getItem('totalBudget')) {
+        document.getElementById('totalBudget').value = localStorage.getItem('totalBudget');
+    }
+    updateAllPrices();
+</script>
+
+</body>
+</html>
