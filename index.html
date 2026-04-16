@@ -131,7 +131,7 @@
 
     // 설정 관리
     function saveSettings() {
-        sessionStorage.setItem('ghToken', document.getElementById('ghToken').value);
+        localStorage.setItem('ghToken', document.getElementById('ghToken').value);
         localStorage.setItem('gistId', document.getElementById('gistId').value);
         toggleModal(false);
         loadFromGist();
@@ -162,7 +162,7 @@
 
     // Gist 연동
     async function loadFromGist() {
-        const t = sessionStorage.getItem('ghToken'), id = localStorage.getItem('gistId');
+        const t = localStorage.getItem('ghToken'), id = localStorage.getItem('gistId');
         if (!t || !id) return;
         try {
             const res = await fetch(`https://api.github.com/gists/${id}`, { headers: {'Authorization': `token ${t}`} });
@@ -180,7 +180,7 @@
 
     async function saveToGist() {
         // 1. 설정값 및 상태 표시바 준비
-        const t = sessionStorage.getItem('ghToken');
+        const t = localStorage.getItem('ghToken');
         let id = localStorage.getItem('gistId'); // let으로 선언하여 신규 ID 할당 가능하게 함
         const statusEl = document.getElementById('syncStatus');
         
@@ -278,7 +278,7 @@
             tr.innerHTML = `
                 <td><input type="text" value="${s.code}" class="input-center" onchange="upd(${i},'code',this.value)"></td>
                 <td><input type="text" value="${s.name}" class="input-center" onchange="upd(${i},'name',this.value)"></td>
-                <td><input type="text" value="${fN(s.buy)}" oninput="updRaw(${i},'buy',this.value)" onblur="this.value=fN(pN(this.value))"></td>
+                <td><input type="text" value="${fN(s.buy)}" oninput="updRaw(${i},'buy',this.value)" onblur="this.value=fN(pN(this.value)); calculate();"></td>
                 <td><input type="text" value="${fN(s.qty)}" oninput="updF(${i},'qty',this)"></td>
                 <td>${fN(s.curr)}</td><td><b>${fN(ev)}</b></td>
                 <td class="${pClass}">${pRate}%</td><td>${weight}%</td>
@@ -301,13 +301,13 @@
     }
 
     function upd(i, k, v) { stocks[i][k] = v; calculate(); }
-    function updF(i, k, el) { let v = pN(el.value); el.value = fN(v); stocks[i][k] = v; calculate(); }
+    function updF(i, k, el) { let v = pN(el.value); el.value = fN(v); stocks[i][k] = v; }
     function addStock() { stocks.push({code:'', name:'', buy:0, qty:0, curr:0, target:0}); calculate(); }
     function del(i) { if(confirm("삭제하시겠습니까?")) { stocks.splice(i, 1); calculate(); } }
     function updRaw(i,k,v){ stocks[i][k] = pN(v); calculate(); }
     
     window.onload = () => {
-        document.getElementById('ghToken').value = sessionStorage.getItem('ghToken') || "";
+        document.getElementById('ghToken').value = localStorage.getItem('ghToken') || "";
         document.getElementById('gistId').value = localStorage.getItem('gistId') || "";
         loadFromGist();
     };
