@@ -1,340 +1,210 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stock Asset Master v1.0</title>
-    <style>
-        /* 1. 폰트 및 기본 스타일 강제 고정 */
-        * { box-sizing: border-box; }
-        body { 
-            font-family: 'Malgun Gothic', '맑은 고딕', sans-serif !important; 
-            font-size: 9pt !important; 
-            background: #f4f7f9; 
-            margin: 0; padding: 10px; color: #333; 
-        }
-        .container { width: 100%; max-width: 1100px; margin: 0 auto; }
-        .card-panel { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.08); margin-bottom: 15px; }
-        
-        /* 요약 바 */
-        .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
-        .stat-box { padding: 10px; background: #fafafa; border: 1px solid #eee; border-radius: 4px; text-align: center; }
-        .label { display: block; font-size: 8pt; color: #888; margin-bottom: 4px; }
-        .value { font-weight: bold; font-size: 9pt; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stock Asset Master v3.0</title>
 
-        /* 테이블 너비 최적화 (추천안 반영) */
-        .desktop-table { 
-            width: 100%; border-collapse: collapse; margin-top: 10px; 
-            table-layout: fixed; /* 너비 고정 핵심 */
-        }
-        .desktop-table th, .desktop-table td { 
-            border: 1px solid #eee; padding: 6px 4px; text-align: center; 
-            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-        }
-        .desktop-table th { background: #f8f9fa; font-weight: bold; }
-        
-        /* 입력창 스타일 */
-        input { 
-            font-family: 'Malgun Gothic' !important; font-size: 9pt !important; 
-            width: 100%; border: 1px solid #ddd; padding: 3px; border-radius: 2px; text-align: right; 
-        }
-        .input-center { text-align: center; }
-
-        /* 메모창 폰트 고정 */
-        #memoArea { 
-            width: 100%; height: 150px; margin-top: 15px; padding: 12px; 
-            resize: vertical; border-radius: 4px; border: 1px solid #ccc;
-            font-family: 'Malgun Gothic', '맑은 고딕', sans-serif !important; 
-            font-size: 9pt !important; line-height: 1.6;
-        }
-
-        /* 반응형 제어 */
-        .mobile-list { display: none; margin-top: 10px; }
-        @media (max-width: 950px) {
-            .desktop-table { display: none; }
-            .mobile-list { display: block; }
-        }
-        .stock-card { background: #fff; border: 1px solid #ddd; padding: 12px; border-radius: 6px; margin-bottom: 10px; }
-        .card-row { display: flex; justify-content: space-between; margin-bottom: 5px; border-bottom: 1px dashed #eee; padding-bottom: 3px; }
-
-        /* 색상 코드 */
-        .btn { padding: 6px 12px; border-radius: 4px; cursor: pointer; border: 1px solid #ccc; background: #fff; font-size: 8.5pt; font-family: inherit; }
-        .btn-main { background: #2563eb; color: #fff; border: none; }
-        .loss { color: #ef4444; font-weight: bold; } /* 마이너스 빨간색 */
-        .gain { color: #3b82f6; font-weight: bold; } /* 플러스 파란색 */
-
-        /* 설정 모달 */
-        #configModal { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 25px; z-index: 1000; border-radius: 10px; width: 300px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
-        .overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:999; }
-    </style>
+<style>
+* { box-sizing: border-box; }
+body { font-family:'Malgun Gothic'; background:#f4f7f9; padding:10px; }
+.container { max-width:1100px; margin:auto; }
+.card { background:#fff; padding:15px; margin-bottom:15px; border-radius:8px; }
+table { width:100%; border-collapse:collapse; }
+td,th { border:1px solid #eee; padding:5px; text-align:center; }
+input { width:100%; padding:4px; text-align:right; }
+.btn { padding:6px 10px; cursor:pointer; }
+.gain { color:#3b82f6; }
+.loss { color:#ef4444; }
+</style>
 </head>
+
 <body>
-
 <div class="container">
-    <div id="syncStatus" style="display:none; margin-bottom:10px; padding:8px; border-radius:5px; font-size:8.5pt; font-weight:bold; text-align:center;"></div>
-    <div class="card-panel">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-            <b style="font-size:11pt;">📈 스마트 투자 배분 관리</b>
-            <div>
-                <button class="btn btn-main" onclick="fetchPrices()">🔄 시세 갱신</button>
-                <button class="btn btn-main" style="background:#10b981" onclick="saveToGist()">💾 Gist 저장</button>
-                <button class="btn" onclick="toggleModal(true)">⚙️ 설정</button>
-            </div>
-        </div>
-        <div class="summary-grid">
-            <div class="stat-box"><span class="label">총 투자 가용금</span><input type="text" id="totalBudget" value="0" oninput="uiFormat(this)"></div>
-            <div class="stat-box"><span class="label">기투자 금액</span><input type="text" id="currentInvested" value="0" oninput="uiFormat(this)"></div>
-            <div class="stat-box"><span class="label">투자 잔여금</span><div class="value" id="resRem">0</div></div>
-            <div class="stat-box"><span class="label">현재/잔여월</span><div class="value" id="resMonth"></div></div>
-            <div class="stat-box"><span class="label">월별 투자가능액</span><div class="value" id="resMonAvail" style="color:#2563eb">0</div></div>
-        </div>
-    </div>
 
-    <div class="card-panel">
-        <table class="desktop-table">
-            <colgroup>
-                <col style="width: 85px;">  <col style="width: auto;">  <col style="width: 105px;"> <col style="width: 60px;">  <col style="width: 90px;">  <col style="width: 105px;"> <col style="width: 70px;">  <col style="width: 60px;">  <col style="width: 60px;">  <col style="width: 100px;"> <col style="width: 35px;">  </colgroup>
-            <thead>
-                <tr>
-                    <th>코드</th><th>종목명</th><th>매입액</th><th>수량</th><th>현재가</th><th>평가액</th><th>손익%</th><th>비중</th><th>목표%</th><th>추가매수</th><th></th>
-                </tr>
-            </thead>
-            <tbody id="pcBody"></tbody>
-        </table>
-        
-        <div id="mobileBody" class="mobile-list"></div>
-        
-        <button class="btn" style="margin-top:15px;" onclick="addStock()">+ 종목 추가</button>
-        <textarea id="memoArea" placeholder="투자 분석 및 특이사항을 기록하세요."></textarea>
-    </div>
+<div class="card">
+총 투자금 <input id="totalBudget" value="0" oninput="numOnly(this)">
+기투자금 <input id="currentInvested" value="0" oninput="numOnly(this)">
+<div>잔여금: <span id="resRem"></span></div>
 </div>
 
-<div class="overlay" id="overlay" onclick="toggleModal(false)"></div>
-<div id="configModal">
-    <b style="font-size:10pt">⚙️ Gist 연동 설정</b><br><br>
-    <span class="label" style="text-align:left">GitHub Personal Access Token</span>
-    <input type="password" id="ghToken" style="width:100%; text-align:left; margin-bottom:12px; padding:6px;">
-    <span class="label" style="text-align:left">Gist ID</span>
-    <input type="text" id="gistId" style="width:100%; text-align:left; margin-bottom:18px; padding:6px;">
-    <button class="btn btn-main" style="width:100%; padding:10px;" onclick="saveSettings()">설정 저장 및 데이터 로드</button>
+<div class="card">
+<table>
+<thead>
+<tr>
+<th>코드</th><th>종목명</th><th>평균단가</th><th>수량</th>
+<th>현재가</th><th>평가액</th><th>수익률</th><th>삭제</th>
+</tr>
+</thead>
+<tbody id="tbody"></tbody>
+</table>
+
+<button onclick="addStock()">+ 추가</button>
+<button onclick="fetchPrices(this)">시세</button>
+<button onclick="saveToGist()">저장</button>
+</div>
+
 </div>
 
 <script>
-    let stocks = [];
-    const FILENAME = 'stock_portfolio.json';
+let stocks=[];
+const FILENAME="stock.json";
 
-    // 유틸리티: 콤마 포맷
-    function fN(n) { return Math.floor(n).toLocaleString(); }
-    function pN(s) { return parseFloat(String(s).replace(/,/g, '')) || 0; }
-    function uiFormat(el) { el.value = fN(pN(el.value)); calculate(); }
-    function toggleModal(s) { document.getElementById('configModal').style.display = s?'block':'none'; document.getElementById('overlay').style.display = s?'block':'none'; }
+// ===== 숫자 =====
+const pN=v=>Number(String(v).replace(/,/g,''))||0;
+const fN=v=>Number(v||0).toLocaleString();
 
-    // 설정 관리
-    function saveSettings() {
-        localStorage.setItem('ghToken', document.getElementById('ghToken').value);
-        localStorage.setItem('gistId', document.getElementById('gistId').value);
-        toggleModal(false);
-        loadFromGist();
-    }
+function numOnly(el){
+    el.value=el.value.replace(/[^0-9]/g,'');
+    calculate();
+}
+function blurFormat(el){
+    el.value=fN(pN(el.value));
+}
 
-    // 시세 갱신 (다중 프록시 및 코드 보정 반영)
-    // 시세 갱신 (시각적 피드백 및 버튼 비활성화 추가)
-    async function fetchPrices() {
-        // [수정포인트 1] 클릭된 버튼의 상태를 변경하여 중복 클릭 방지
-        const btn = event.target;
-        const originalText = btn.innerText;
-        btn.innerText = "🔄 시세 갱신 중..."; // 텍스트 변경
-        btn.disabled = true; // 버튼 비활성화
-        btn.style.opacity = "0.6"; // 시각적으로 흐리게
+// ===== 데이터 =====
+function addStock(){
+    stocks.push({code:'',name:'',avg:0,qty:0,curr:0});
+    render();
+}
+function del(i){
+    stocks.splice(i,1);
+    render();
+}
+function upd(i,k,v){ stocks[i][k]=v; }
+function updNum(i,k,v){
+    stocks[i][k]=pN(v);
+    calculate();
+}
 
-        const proxies = [
-            (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
-            (url) => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`
-        ];
+// ===== 렌더 =====
+function render(){
+    const tb=document.getElementById("tbody");
+    tb.innerHTML="";
+    const frag=document.createDocumentFragment();
 
-        for (let s of stocks) {
-            if (!s.code) continue;
-            let fCode = s.code.toUpperCase().trim();
-            if (!fCode.includes('.')) fCode += '.KS'; 
-            const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${fCode}`;
-            
-            for (let getProxy of proxies) {
-                try {
-                    const res = await fetch(getProxy(targetUrl));
-                    let data;
-                    if (getProxy.toString().includes('allorigins')) {
-                        const json = await res.json();
-                        data = JSON.parse(json.contents);
-                    } else {
-                        data = await res.json();
+    stocks.forEach((s,i)=>{
+        const ev=s.curr*s.qty;
+        const buy=s.avg*s.qty;
+        const rate=buy?((ev-buy)/buy*100).toFixed(2):0;
+        const cls=rate<0?'loss':'gain';
+
+        const tr=document.createElement("tr");
+        tr.innerHTML=`
+        <td><input value="${s.code}" onchange="upd(${i},'code',this.value)"></td>
+        <td><input value="${s.name}" onchange="upd(${i},'name',this.value)"></td>
+        <td><input value="${fN(s.avg)}"
+            oninput="updNum(${i},'avg',this.value)"
+            onblur="blurFormat(this)"></td>
+        <td><input value="${fN(s.qty)}"
+            oninput="updNum(${i},'qty',this.value)"
+            onblur="blurFormat(this)"></td>
+        <td>${fN(s.curr)}</td>
+        <td>${fN(ev)}</td>
+        <td class="${cls}">${rate}%</td>
+        <td><button onclick="del(${i})">X</button></td>
+        `;
+        frag.appendChild(tr);
+    });
+
+    tb.appendChild(frag);
+    calculate();
+}
+
+// ===== 계산 =====
+function calculate(){
+    const b=pN(totalBudget.value);
+    const i=pN(currentInvested.value);
+    resRem.innerText=fN(b-i);
+}
+
+// ===== KIS API =====
+let TOKEN="";
+
+async function getToken(){
+    const res=await fetch("https://openapi.koreainvestment.com:9443/oauth2/tokenP",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+            grant_type:"client_credentials",
+            appkey:"YOUR_APP_KEY",
+            appsecret:"YOUR_APP_SECRET"
+        })
+    });
+    const d=await res.json();
+    TOKEN=d.access_token;
+}
+
+async function fetchPrices(btn){
+    btn.disabled=true;
+
+    if(!TOKEN) await getToken();
+
+    for(let s of stocks){
+        if(!s.code) continue;
+
+        try{
+            const res=await fetch(
+                `https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-price?fid_cond_mrkt_div_code=J&fid_input_iscd=${s.code}`,
+                {
+                    headers:{
+                        authorization:`Bearer ${TOKEN}`,
+                        appkey:"YOUR_APP_KEY",
+                        appsecret:"YOUR_APP_SECRET",
+                        tr_id:"FHKST01010100"
                     }
-                    if (data.chart.result) {
-                        s.curr = data.chart.result[0].meta.regularMarketPrice;
-                        break; 
-                    }
-                } catch (e) { continue; }
-            }
-        }
-
-        // [수정포인트 2] 작업 완료 후 버튼 상태 복구
-        calculate();
-        btn.innerText = originalText; // 원래 텍스트(🔄 시세 갱신)로 복구
-        btn.disabled = false; // 버튼 다시 활성화
-        btn.style.opacity = "1";
-        
-        alert("시세 갱신이 완료되었습니다.");
-    }
-
-    // Gist 연동
-    async function loadFromGist() {
-        const t = localStorage.getItem('ghToken'), id = localStorage.getItem('gistId');
-        if (!t || !id) return;
-        try {
-            const res = await fetch(`https://api.github.com/gists/${id}`, { headers: {'Authorization': `token ${t}`} });
-            const data = await res.json();
-            if (data.files[FILENAME]) {
-                const c = JSON.parse(data.files[FILENAME].content);
-                stocks = c.stocks || [];
-                document.getElementById('totalBudget').value = fN(c.totalBudget || 0);
-                document.getElementById('currentInvested').value = fN(c.currentInvested || 0);
-                document.getElementById('memoArea').value = c.memo || "";
-                calculate();
-            }
-        } catch(e) { console.error("로드 실패"); }
-    }
-
-    async function saveToGist() {
-        // 1. 설정값 및 상태 표시바 준비
-        const t = localStorage.getItem('ghToken');
-        let id = localStorage.getItem('gistId'); // let으로 선언하여 신규 ID 할당 가능하게 함
-        const statusEl = document.getElementById('syncStatus');
-        
-        if (!t) return alert("⚙️ 설정에서 GitHub 토큰을 먼저 입력하세요.");
-
-        // 2. [핵심] ID 유무에 따른 분기 처리 (프롬프트 매니저 로직)
-        const method = id ? 'PATCH' : 'POST';
-        const url = id ? `https://api.github.com/gists/${id}` : 'https://api.github.com/gists';
-
-        // 시각적 피드백 시작
-        statusEl.style.display = 'block';
-        statusEl.style.background = '#e8f0fa';
-        statusEl.style.color = '#2563eb';
-        statusEl.innerText = id ? "⬆️ 기존 Gist 업데이트 중..." : "🆕 새 Gist 생성 및 저장 중...";
-
-        // 3. 전송할 데이터 구조화
-        const payload = {
-            description: "Stock Asset Master Portfolio",
-            public: false,
-            files: {
-                [FILENAME]: {
-                    content: JSON.stringify({
-                        stocks,
-                        totalBudget: pN(document.getElementById('totalBudget').value),
-                        currentInvested: pN(document.getElementById('currentInvested').value),
-                        memo: document.getElementById('memoArea').value,
-                        lastUpdated: new Date().toLocaleString()
-                    }, null, 2)
                 }
-            }
-        };
+            );
 
-        try {
-            // 4. API 호출
-            const res = await fetch(url, {
-                method: method,
-                headers: {
-                    'Authorization': `token ${t}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(payload)
-            });
+            const d=await res.json();
+            s.curr=Number(d.output.stck_prpr)||0;
 
-            if (res.ok) {
-                const result = await res.json();
-                
-                // 5. [핵심] 신규 생성 시 발급된 ID를 로컬에 저장
-                if (!id && result.id) {
-                    localStorage.setItem('gistId', result.id);
-                    document.getElementById('gistId').value = result.id; // 설정창 UI도 갱신
-                }
-
-                statusEl.style.background = '#e6f5ee';
-                statusEl.style.color = '#10b981';
-                statusEl.innerText = `✅ ${id ? '업데이트' : '신규 생성'} 완료 (${new Date().toLocaleTimeString()})`;
-                setTimeout(() => { statusEl.style.display = 'none'; }, 3000);
-            } else {
-                const errData = await res.json();
-                throw new Error(errData.message);
-            }
-        } catch (e) {
-            console.error("Gist 저장 실패:", e);
-            statusEl.style.background = '#fce8e8';
-            statusEl.style.color = '#ef4444';
-            statusEl.innerText = "❌ 저장 실패: " + e.message;
+        }catch(e){
+            console.log("실패",s.code);
         }
     }
 
-    // 핵심 계산 로직
-    function calculate() {
-        const budget = pN(document.getElementById('totalBudget').value);
-        const invested = pN(document.getElementById('currentInvested').value);
-        const now = new Date();
-        const m = now.getMonth() + 1, remM = 12 - m;
-        
-        document.getElementById('resMonth').innerText = `${m}월 / ${remM}개월`;
-        const rem = budget - invested;
-        document.getElementById('resRem').innerText = fN(rem);
-        const monAvail = remM > 0 ? rem/remM : rem;
-        document.getElementById('resMonAvail').innerText = fN(monAvail);
+    render();
+    btn.disabled=false;
+}
 
-        let totalEval = stocks.reduce((a, s) => a + (s.curr * s.qty), 0);
-        const pcBody = document.getElementById('pcBody'), mobBody = document.getElementById('mobileBody');
-        pcBody.innerHTML = ''; mobBody.innerHTML = '';
+// ===== GIST =====
+async function saveToGist(){
+    const token=localStorage.getItem("ghToken");
+    let id=localStorage.getItem("gistId");
 
-        stocks.forEach((s, i) => {
-            const ev = s.curr * s.qty;
-            const pRate = s.buy > 0 ? ((ev - s.buy) / s.buy * 100).toFixed(2) : 0;
-            const weight = totalEval > 0 ? (ev / totalEval * 100).toFixed(1) : 0;
-            const buySug = Math.max(0, (totalEval * (s.target/100)) - ev);
-            const pClass = pRate < 0 ? 'loss' : 'gain';
+    if(!token) return alert("GitHub 토큰 필요");
 
-            // Desktop Table Rendering
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td><input type="text" value="${s.code}" class="input-center" onchange="upd(${i},'code',this.value)"></td>
-                <td><input type="text" value="${s.name}" class="input-center" onchange="upd(${i},'name',this.value)"></td>
-                <td><input type="text" value="${fN(s.buy)}" oninput="updF(${i},'buy',this)"></td>
-                <td><input type="text" value="${fN(s.qty)}" oninput="updF(${i},'qty',this)"></td>
-                <td>${fN(s.curr)}</td><td><b>${fN(ev)}</b></td>
-                <td class="${pClass}">${pRate}%</td><td>${weight}%</td>
-                <td><input type="text" value="${s.target}" class="input-center" onchange="upd(${i},'target',pN(this.value))"></td>
-                <td style="color:#2563eb; font-weight:bold">${fN(buySug)}</td>
-                <td><button class="btn" style="padding:2px 5px; color:red;" onclick="del(${i})">×</button></td>`;
-            pcBody.appendChild(tr);
-
-            // Mobile Card Rendering
-            const card = document.createElement('div');
-            card.className = 'stock-card';
-            card.innerHTML = `
-                <div class="card-row"><b>${s.name || '종목명 미입력'}</b> <span>${s.code}</span></div>
-                <div class="card-row"><span class="label">수익률</span><span class="${pClass}">${pRate}%</span></div>
-                <div class="card-row"><span class="label">평가액 / 비중</span><span>${fN(ev)} (${weight}%)</span></div>
-                <div class="card-row"><span class="label">추가매수 필요액</span><b style="color:#2563eb">${fN(buySug)}</b></div>
-            `;
-            mobBody.appendChild(card);
-        });
-    }
-
-    function upd(i, k, v) { stocks[i][k] = v; calculate(); }
-    function updF(i, k, el) { let v = pN(el.value); el.value = fN(v); stocks[i][k] = v; calculate(); }
-    function addStock() { stocks.push({code:'', name:'', buy:0, qty:0, curr:0, target:0}); calculate(); }
-    function del(i) { if(confirm("삭제하시겠습니까?")) { stocks.splice(i, 1); calculate(); } }
-
-    window.onload = () => {
-        document.getElementById('ghToken').value = localStorage.getItem('ghToken') || "";
-        document.getElementById('gistId').value = localStorage.getItem('gistId') || "";
-        loadFromGist();
+    const payload={
+        description:"stock",
+        public:false,
+        files:{
+            [FILENAME]:{
+                content:JSON.stringify({stocks},null,2)
+            }
+        }
     };
+
+    const res=await fetch(
+        id?`https://api.github.com/gists/${id}`:"https://api.github.com/gists",
+        {
+            method:id?"PATCH":"POST",
+            headers:{
+                Authorization:`token ${token}`,
+                "Content-Type":"application/json"
+            },
+            body:JSON.stringify(payload)
+        }
+    );
+
+    const data=await res.json();
+    if(!id) localStorage.setItem("gistId",data.id);
+
+    alert("저장 완료");
+}
+
+// ===== 시작 =====
+render();
 </script>
 </body>
 </html>
