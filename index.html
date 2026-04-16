@@ -3,57 +3,68 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stock Manager Pro</title>
+    <title>Stock Asset Master v1.0</title>
     <style>
-        body { font-family: 'Malgun Gothic', sans-serif; font-size: 9pt; background: #f4f4f9; margin: 0; padding: 10px; color: #333; }
-        .container { width: 100%; max-width: 1000px; margin: 0 auto; }
-        .card-panel { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 15px; }
-        
-        /* 상단 요약 바 */
-        .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
-        .stat-box { padding: 8px; background: #fdfdfd; border: 1px solid #eee; border-radius: 4px; text-align: center; }
-        .label { display: block; font-size: 8pt; color: #888; margin-bottom: 3px; }
-        .value { font-weight: bold; font-size: 9pt; }
-        input { font-family: 'Malgun Gothic'; font-size: 9pt; border: 1px solid #ddd; padding: 3px; border-radius: 3px; width: 85%; text-align: right; }
-
-        /* 반응형 테이블/카드 제어 */
-        .desktop-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        .desktop-table th, .desktop-table td { border: 1px solid #eee; padding: 6px; text-align: center; }
-        .desktop-table th { background: #f9f9f9; }
-
-        .mobile-list { display: none; margin-top: 10px; }
-        .stock-card { background: #fff; border: 1px solid #ddd; padding: 10px; border-radius: 6px; margin-bottom: 10px; position: relative; }
-        .card-row { display: flex; justify-content: space-between; margin-bottom: 4px; border-bottom: 1px dashed #eee; padding-bottom: 2px; }
-
-        /* 메모장 */
-        #memoArea { 
-            width: 100%; 
-            height: 120px; 
-            margin-top: 15px; 
-            padding: 10px; 
-            box-sizing: border-box; 
-            resize: vertical; 
-            border-radius: 4px; 
-            border: 1px solid #ccc;
-            /* 폰트 고정 핵심 코드 */
+        /* 1. 폰트 및 기본 스타일 강제 고정 */
+        * { box-sizing: border-box; }
+        body { 
             font-family: 'Malgun Gothic', '맑은 고딕', sans-serif !important; 
             font-size: 9pt !important; 
-            line-height: 1.5;
+            background: #f4f7f9; 
+            margin: 0; padding: 10px; color: #333; 
+        }
+        .container { width: 100%; max-width: 1100px; margin: 0 auto; }
+        .card-panel { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.08); margin-bottom: 15px; }
+        
+        /* 요약 바 */
+        .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+        .stat-box { padding: 10px; background: #fafafa; border: 1px solid #eee; border-radius: 4px; text-align: center; }
+        .label { display: block; font-size: 8pt; color: #888; margin-bottom: 4px; }
+        .value { font-weight: bold; font-size: 9pt; }
+
+        /* 테이블 너비 최적화 (추천안 반영) */
+        .desktop-table { 
+            width: 100%; border-collapse: collapse; margin-top: 10px; 
+            table-layout: fixed; /* 너비 고정 핵심 */
+        }
+        .desktop-table th, .desktop-table td { 
+            border: 1px solid #eee; padding: 6px 4px; text-align: center; 
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .desktop-table th { background: #f8f9fa; font-weight: bold; }
+        
+        /* 입력창 스타일 */
+        input { 
+            font-family: 'Malgun Gothic' !important; font-size: 9pt !important; 
+            width: 100%; border: 1px solid #ddd; padding: 3px; border-radius: 2px; text-align: right; 
+        }
+        .input-center { text-align: center; }
+
+        /* 메모창 폰트 고정 */
+        #memoArea { 
+            width: 100%; height: 150px; margin-top: 15px; padding: 12px; 
+            resize: vertical; border-radius: 4px; border: 1px solid #ccc;
+            font-family: 'Malgun Gothic', '맑은 고딕', sans-serif !important; 
+            font-size: 9pt !important; line-height: 1.6;
         }
 
-        @media (max-width: 768px) {
+        /* 반응형 제어 */
+        .mobile-list { display: none; margin-top: 10px; }
+        @media (max-width: 950px) {
             .desktop-table { display: none; }
             .mobile-list { display: block; }
         }
+        .stock-card { background: #fff; border: 1px solid #ddd; padding: 12px; border-radius: 6px; margin-bottom: 10px; }
+        .card-row { display: flex; justify-content: space-between; margin-bottom: 5px; border-bottom: 1px dashed #eee; padding-bottom: 3px; }
 
-        /* 공통 스타일 */
-        .btn { padding: 5px 12px; border-radius: 4px; cursor: pointer; border: 1px solid #ccc; background: #fff; font-size: 8pt; }
-        .btn-save { background: #2563eb; color: #fff; border: none; }
-        .loss { color: #d63031; font-weight: bold; } /* 마이너스 빨간색 */
-        .gain { color: #0984e3; font-weight: bold; } /* 플러스 파란색 */
+        /* 색상 코드 */
+        .btn { padding: 6px 12px; border-radius: 4px; cursor: pointer; border: 1px solid #ccc; background: #fff; font-size: 8.5pt; font-family: inherit; }
+        .btn-main { background: #2563eb; color: #fff; border: none; }
+        .loss { color: #ef4444; font-weight: bold; } /* 마이너스 빨간색 */
+        .gain { color: #3b82f6; font-weight: bold; } /* 플러스 파란색 */
 
         /* 설정 모달 */
-        #configModal { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; z-index: 1000; border-radius: 8px; width: 280px; box-shadow: 0 0 20px rgba(0,0,0,0.2); }
+        #configModal { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 25px; z-index: 1000; border-radius: 10px; width: 300px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
         .overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:999; }
     </style>
 </head>
@@ -61,28 +72,30 @@
 
 <div class="container">
     <div class="card-panel">
-        <div style="display:flex; justify-content:space-between; margin-bottom:15px;">
-            <b style="font-size:11pt">📊 투자 배분 대시보드</b>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+            <b style="font-size:11pt;">📈 스마트 투자 배분 관리</b>
             <div>
-                <button class="btn" onclick="fetchPrices()">🔄 시세갱신</button>
-                <button class="btn btn-save" onclick="saveToGist()">💾 Gist저장</button>
+                <button class="btn btn-main" onclick="fetchPrices()">🔄 시세 갱신</button>
+                <button class="btn btn-main" style="background:#10b981" onclick="saveToGist()">💾 Gist 저장</button>
                 <button class="btn" onclick="toggleModal(true)">⚙️ 설정</button>
             </div>
         </div>
         <div class="summary-grid">
-            <div class="stat-box"><span class="label">총 투자 금액</span><input type="text" id="totalBudget" value="0" oninput="uiFormat(this)"></div>
-            <div class="stat-box"><span class="label">현 투자 금액</span><input type="text" id="currentInvested" value="0" oninput="uiFormat(this)"></div>
-            <div class="stat-box"><span class="label">잔여금</span><div class="value" id="resRem">0</div></div>
-            <div class="stat-box"><span class="label">현재월 / 잔여월</span><div class="value" id="resMonth"></div></div>
+            <div class="stat-box"><span class="label">총 투자 가용금</span><input type="text" id="totalBudget" value="0" oninput="uiFormat(this)"></div>
+            <div class="stat-box"><span class="label">기투자 금액</span><input type="text" id="currentInvested" value="0" oninput="uiFormat(this)"></div>
+            <div class="stat-box"><span class="label">투자 잔여금</span><div class="value" id="resRem">0</div></div>
+            <div class="stat-box"><span class="label">현재/잔여월</span><div class="value" id="resMonth"></div></div>
             <div class="stat-box"><span class="label">월별 투자가능액</span><div class="value" id="resMonAvail" style="color:#2563eb">0</div></div>
         </div>
     </div>
 
     <div class="card-panel">
         <table class="desktop-table">
+            <colgroup>
+                <col style="width: 85px;">  <col style="width: auto;">  <col style="width: 105px;"> <col style="width: 60px;">  <col style="width: 90px;">  <col style="width: 105px;"> <col style="width: 70px;">  <col style="width: 60px;">  <col style="width: 60px;">  <col style="width: 100px;"> <col style="width: 35px;">  </colgroup>
             <thead>
                 <tr>
-                    <th>코드</th><th>종목명</th><th>매입액</th><th>수량</th><th>현재가</th><th>평가액</th><th>손익%</th><th>비중</th><th>목표%</th><th>추가매수</th><th>X</th>
+                    <th>코드</th><th>종목명</th><th>매입액</th><th>수량</th><th>현재가</th><th>평가액</th><th>손익%</th><th>비중</th><th>목표%</th><th>추가매수</th><th></th>
                 </tr>
             </thead>
             <tbody id="pcBody"></tbody>
@@ -91,28 +104,31 @@
         <div id="mobileBody" class="mobile-list"></div>
         
         <button class="btn" style="margin-top:15px;" onclick="addStock()">+ 종목 추가</button>
-        <textarea id="memoArea" style="font-family:'Malgun Gothic'; font-size:9pt;" placeholder="투자 일지 및 메모를 기록하세요."></textarea>
+        <textarea id="memoArea" placeholder="투자 분석 및 특이사항을 기록하세요."></textarea>
     </div>
 </div>
 
-<div class="overlay" id="overlay"></div>
+<div class="overlay" id="overlay" onclick="toggleModal(false)"></div>
 <div id="configModal">
-    <b>⚙️ Gist 설정</b><br><br>
-    <span class="label">Token</span><input type="password" id="ghToken" style="width:100%; text-align:left; margin-bottom:10px;">
-    <span class="label">Gist ID</span><input type="text" id="gistId" style="width:100%; text-align:left; margin-bottom:15px;">
-    <button class="btn btn-save" style="width:100%" onclick="saveSettings()">저장 및 로드</button>
-    <button class="btn" style="width:100%; margin-top:5px;" onclick="toggleModal(false)">닫기</button>
+    <b style="font-size:10pt">⚙️ Gist 연동 설정</b><br><br>
+    <span class="label" style="text-align:left">GitHub Personal Access Token</span>
+    <input type="password" id="ghToken" style="width:100%; text-align:left; margin-bottom:12px; padding:6px;">
+    <span class="label" style="text-align:left">Gist ID</span>
+    <input type="text" id="gistId" style="width:100%; text-align:left; margin-bottom:18px; padding:6px;">
+    <button class="btn btn-main" style="width:100%; padding:10px;" onclick="saveSettings()">설정 저장 및 데이터 로드</button>
 </div>
 
 <script>
     let stocks = [];
     const FILENAME = 'stock_portfolio.json';
 
+    // 유틸리티: 콤마 포맷
     function fN(n) { return Math.floor(n).toLocaleString(); }
     function pN(s) { return parseFloat(String(s).replace(/,/g, '')) || 0; }
     function uiFormat(el) { el.value = fN(pN(el.value)); calculate(); }
     function toggleModal(s) { document.getElementById('configModal').style.display = s?'block':'none'; document.getElementById('overlay').style.display = s?'block':'none'; }
 
+    // 설정 관리
     function saveSettings() {
         localStorage.setItem('ghToken', document.getElementById('ghToken').value);
         localStorage.setItem('gistId', document.getElementById('gistId').value);
@@ -120,59 +136,41 @@
         loadFromGist();
     }
 
+    // 시세 갱신 (다중 프록시 및 코드 보정 반영)
     async function fetchPrices() {
-        // 사용할 수 있는 프록시 서버 목록 (다중화)
         const proxies = [
-        (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
-        (url) => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
-        (url) => `https://thingproxy.freeboard.io/fetch/${url}`
+            (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+            (url) => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`
         ];
 
         for (let s of stocks) {
             if (!s.code) continue;
+            let fCode = s.code.toUpperCase().trim();
+            if (!fCode.includes('.')) fCode += '.KS'; 
+            const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${fCode}`;
             
-            // 종목코드 보정 (.KR -> .KS 등)
-            let formattedCode = s.code.toUpperCase().trim();
-            if (formattedCode.endsWith('.KR')) formattedCode = formattedCode.replace('.KR', '.KS');
-            if (!formattedCode.includes('.')) formattedCode += '.KS'; // 기본 코스피 가정
-    
-            const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${formattedCode}`;
-            let success = false;
-    
-            // 성공할 때까지 프록시 순회
-            for (let getProxyUrl of proxies) {
+            for (let getProxy of proxies) {
                 try {
-                    const res = await fetch(getProxyUrl(targetUrl));
-                    if (!res.ok) throw new Error();
-                    
+                    const res = await fetch(getProxy(targetUrl));
                     let data;
-                    // allorigins는 응답 구조가 다르므로 체크
-                    if (getProxyUrl.toString().includes('allorigins')) {
+                    if (getProxy.toString().includes('allorigins')) {
                         const json = await res.json();
                         data = JSON.parse(json.contents);
                     } else {
                         data = await res.json();
                     }
-    
-                    if (data.chart && data.chart.result) {
+                    if (data.chart.result) {
                         s.curr = data.chart.result[0].meta.regularMarketPrice;
-                        success = true;
-                        console.log(`${formattedCode} 가격 로드 성공`);
-                        break; // 성공 시 다음 프록시 시도 안 함
+                        break; 
                     }
-                } catch (e) {
-                    console.warn(`프록시 시도 실패, 다음 서버 시도 중...`);
-                    continue;
-                }
-            }
-    
-            if (!success) {
-                console.error(`${formattedCode}: 모든 프록시 서버가 응답하지 않음.`);
+                } catch (e) { continue; }
             }
         }
         calculate();
+        alert("시세 갱신이 완료되었습니다.");
     }
 
+    // Gist 연동
     async function loadFromGist() {
         const t = localStorage.getItem('ghToken'), id = localStorage.getItem('gistId');
         if (!t || !id) return;
@@ -187,30 +185,33 @@
                 document.getElementById('memoArea').value = c.memo || "";
                 calculate();
             }
-        } catch(e) { alert("로드 실패"); }
+        } catch(e) { console.error("로드 실패"); }
     }
 
     async function saveToGist() {
         const t = localStorage.getItem('ghToken'), id = localStorage.getItem('gistId');
-        if (!t || !id) return alert("설정 필요");
+        if (!t || !id) return alert("⚙️ 설정에서 토큰과 Gist ID를 먼저 입력하세요.");
         const payload = { files: { [FILENAME]: { content: JSON.stringify({
             stocks, totalBudget: pN(document.getElementById('totalBudget').value),
             currentInvested: pN(document.getElementById('currentInvested').value),
             memo: document.getElementById('memoArea').value
         }) } } };
         try {
-            await fetch(`https://api.github.com/gists/${id}`, {
+            const res = await fetch(`https://api.github.com/gists/${id}`, {
                 method: 'PATCH', headers: {'Authorization': `token ${t}`, 'Content-Type': 'application/json'},
                 body: JSON.stringify(payload)
             });
-            alert("저장완료");
-        } catch(e) { alert("저장실패"); }
+            if(res.ok) alert("✅ Gist에 안전하게 저장되었습니다.");
+        } catch(e) { alert("❌ 저장 실패"); }
     }
 
+    // 핵심 계산 로직
     function calculate() {
         const budget = pN(document.getElementById('totalBudget').value);
         const invested = pN(document.getElementById('currentInvested').value);
-        const m = new Date().getMonth() + 1, remM = 12 - m;
+        const now = new Date();
+        const m = now.getMonth() + 1, remM = 12 - m;
+        
         document.getElementById('resMonth').innerText = `${m}월 / ${remM}개월`;
         const rem = budget - invested;
         document.getElementById('resRem').innerText = fN(rem);
@@ -228,37 +229,37 @@
             const buySug = Math.max(0, (totalEval * (s.target/100)) - ev);
             const pClass = pRate < 0 ? 'loss' : 'gain';
 
-            // PC Table
+            // Desktop Table Rendering
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><input type="text" value="${s.code}" onchange="upd(${i},'code',this.value)" style="text-align:center"></td>
-                <td><input type="text" value="${s.name}" onchange="upd(${i},'name',this.value)" style="text-align:center"></td>
-                <td><input type="text" value="${fN(s.buy)}" oninput="updFormat(${i},'buy',this)"></td>
-                <td><input type="text" value="${fN(s.qty)}" oninput="updFormat(${i},'qty',this)"></td>
-                <td>${fN(s.curr)}</td><td>${fN(ev)}</td>
+                <td><input type="text" value="${s.code}" class="input-center" onchange="upd(${i},'code',this.value)"></td>
+                <td><input type="text" value="${s.name}" class="input-center" onchange="upd(${i},'name',this.value)"></td>
+                <td><input type="text" value="${fN(s.buy)}" oninput="updF(${i},'buy',this)"></td>
+                <td><input type="text" value="${fN(s.qty)}" oninput="updF(${i},'qty',this)"></td>
+                <td>${fN(s.curr)}</td><td><b>${fN(ev)}</b></td>
                 <td class="${pClass}">${pRate}%</td><td>${weight}%</td>
-                <td><input type="text" value="${s.target}" onchange="upd(${i},'target',pN(this.value))" style="text-align:center"></td>
+                <td><input type="text" value="${s.target}" class="input-center" onchange="upd(${i},'target',pN(this.value))"></td>
                 <td style="color:#2563eb; font-weight:bold">${fN(buySug)}</td>
-                <td><button onclick="del(${i})">X</button></td>`;
+                <td><button class="btn" style="padding:2px 5px; color:red;" onclick="del(${i})">×</button></td>`;
             pcBody.appendChild(tr);
 
-            // Mobile Card
+            // Mobile Card Rendering
             const card = document.createElement('div');
             card.className = 'stock-card';
             card.innerHTML = `
-                <div class="card-row"><b>${s.name || '종목명'}</b> <span>${s.code}</span></div>
+                <div class="card-row"><b>${s.name || '종목명 미입력'}</b> <span>${s.code}</span></div>
                 <div class="card-row"><span class="label">수익률</span><span class="${pClass}">${pRate}%</span></div>
-                <div class="card-row"><span class="label">평가액</span><span>${fN(ev)}</span></div>
-                <div class="card-row"><span class="label">추가매수액</span><span style="color:#2563eb; font-weight:bold">${fN(buySug)}</span></div>
+                <div class="card-row"><span class="label">평가액 / 비중</span><span>${fN(ev)} (${weight}%)</span></div>
+                <div class="card-row"><span class="label">추가매수 필요액</span><b style="color:#2563eb">${fN(buySug)}</b></div>
             `;
             mobBody.appendChild(card);
         });
     }
 
     function upd(i, k, v) { stocks[i][k] = v; calculate(); }
-    function updFormat(i, k, el) { let v = pN(el.value); el.value = fN(v); stocks[i][k] = v; calculate(); }
+    function updF(i, k, el) { let v = pN(el.value); el.value = fN(v); stocks[i][k] = v; calculate(); }
     function addStock() { stocks.push({code:'', name:'', buy:0, qty:0, curr:0, target:0}); calculate(); }
-    function del(i) { stocks.splice(i, 1); calculate(); }
+    function del(i) { if(confirm("삭제하시겠습니까?")) { stocks.splice(i, 1); calculate(); } }
 
     window.onload = () => {
         document.getElementById('ghToken').value = localStorage.getItem('ghToken') || "";
