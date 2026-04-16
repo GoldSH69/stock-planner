@@ -71,6 +71,7 @@
 <body>
 
 <div class="container">
+    <div id="syncStatus" style="display:none; margin-bottom:10px; padding:8px; border-radius:5px; font-size:8.5pt; font-weight:bold; text-align:center;"></div>
     <div class="card-panel">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
             <b style="font-size:11pt;">📈 스마트 투자 배분 관리</b>
@@ -137,7 +138,15 @@
     }
 
     // 시세 갱신 (다중 프록시 및 코드 보정 반영)
+    // 시세 갱신 (시각적 피드백 및 버튼 비활성화 추가)
     async function fetchPrices() {
+        // [수정포인트 1] 클릭된 버튼의 상태를 변경하여 중복 클릭 방지
+        const btn = event.target;
+        const originalText = btn.innerText;
+        btn.innerText = "🔄 시세 갱신 중..."; // 텍스트 변경
+        btn.disabled = true; // 버튼 비활성화
+        btn.style.opacity = "0.6"; // 시각적으로 흐리게
+
         const proxies = [
             (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
             (url) => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`
@@ -166,7 +175,13 @@
                 } catch (e) { continue; }
             }
         }
+
+        // [수정포인트 2] 작업 완료 후 버튼 상태 복구
         calculate();
+        btn.innerText = originalText; // 원래 텍스트(🔄 시세 갱신)로 복구
+        btn.disabled = false; // 버튼 다시 활성화
+        btn.style.opacity = "1";
+        
         alert("시세 갱신이 완료되었습니다.");
     }
 
@@ -189,21 +204,43 @@
     }
 
     async function saveToGist() {
-        const t = localStorage.getItem('ghToken'), id = localStorage.getItem('gistId');
-        if (!t || !id) return alert("⚙️ 설정에서 토큰과 Gist ID를 먼저 입력하세요.");
-        const payload = { files: { [FILENAME]: { content: JSON.stringify({
-            stocks, totalBudget: pN(document.getElementById('totalBudget').value),
-            currentInvested: pN(document.getElementById('currentInvested').value),
-            memo: document.getElementById('memoArea').value
-        }) } } };
-        try {
-            const res = await fetch(`https://api.github.com/gists/${id}`, {
-                method: 'PATCH', headers: {'Authorization': `token ${t}`, 'Content-Type': 'application/json'},
-                body: JSON.stringify(payload)
-            });
-            if(res.ok) alert("✅ Gist에 안전하게 저장되었습니다.");
-        } catch(e) { alert("❌ 저장 실패"); }
+    const t = localStorage.getItem('ghToken'), id = localStorage.getItem('gistId');
+    const statusEl = document.getElementById('syncStatus');
+    
+    if (!t || !id) return alert("⚙️ 설정에서 토큰과 Gist ID를 먼저 입력하세요.");
+
+    // 상태 표시: 로딩
+    statusEl.style.display = 'block';
+    statusEl.style.background = '#e8f0fa';
+    statusEl.style.color = '#2563eb';
+    statusEl.innerText = "⬆️ GitHub Gist에 데이터 백업 중...";
+
+    const payload = { files: { [FILENAME]: { content: JSON.stringify({
+        stocks, 
+        totalBudget: pN(document.getElementById('totalBudget').value),
+        currentInvested: pN(document.getElementById('currentInvested').value),
+        memo: document.getElementById('memoArea').value,
+        lastSaved: new Date().toLocaleString() // 저장 시간 기록
+    }) } } };
+
+    try {
+        const res = await fetch(`https://api.github.com/gists/${id}`, {
+            method: 'PATCH', 
+            headers: {'Authorization': `token ${t}`, 'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+        if(res.ok) {
+            statusEl.style.background = '#e6f5ee';
+            statusEl.style.color = '#10b981';
+            statusEl.innerText = "✅ Gist 저장 완료 (" + new Date().toLocaleTimeString() + ")";
+            setTimeout(() => { statusEl.style.display = 'none'; }, 3000);
+        }
+    } catch(e) { 
+        statusEl.style.background = '#fce8e8';
+        statusEl.style.color = '#ef4444';
+        statusEl.innerText = "❌ 저장 실패: 네트워크 확인 필요";
     }
+}
 
     // 핵심 계산 로직
     function calculate() {
