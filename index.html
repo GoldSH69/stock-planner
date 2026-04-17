@@ -104,7 +104,7 @@
                 <col style="width: 85px;">  <col style="width: auto;">  <col style="width: 105px;"> <col style="width: 60px;">  <col style="width: 90px;">  <col style="width: 105px;"> <col style="width: 70px;">  <col style="width: 60px;">  <col style="width: 60px;">  <col style="width: 100px;"> <col style="width: 35px;">  </colgroup>
             <thead>
                 <tr>
-                    <th>코드</th><th>종목명</th><th>매입액</th><th>수량</th><th>현재가</th><th>평가액</th><th>손익%</th><th>비중</th><th>목표%</th><th>추가매수</th><th></th>
+                    <th>코드</th><th>종목명</th><th>매입액</th><th>수량</th><th>현재가</th><th>평가액</th><th>손익%</th><th>비중</th><th>목표%</th><th>추가매수</th><th>매수후비중</th><th></th>
                 </tr>
             </thead>
             <tbody id="pcBody"></tbody>
@@ -216,30 +216,70 @@
     }
 
     // 핵심 계산 로직
-    function calculate() {
+   function calculate() {
         const budget = pN(document.getElementById('totalBudget').value);
         const invested = pN(document.getElementById('currentInvested').value);
         const now = new Date();
         const m = now.getMonth() + 1, remM = 12 - m;
-        
+    
         document.getElementById('resMonth').innerText = `${m}월 / ${remM}개월`;
         const rem = budget - invested;
         document.getElementById('resRem').innerText = fN(rem);
-        const monAvail = remM > 0 ? rem/remM : rem;
+        const monAvail = remM > 0 ? rem / remM : rem;
         document.getElementById('resMonAvail').innerText = fN(monAvail);
     
         let totalEval = stocks.reduce((a, s) => a + (pN(s.curr) * pN(s.qty)), 0);
         let totalBuySum = stocks.reduce((a, s) => a + pN(s.buy), 0);
         let totalSugSum = 0;
     
-        const pcBody = document.getElementById('pcBody'), pcFoot = document.getElementById('pcFoot'), mobBody = document.getElementById('mobileBody');
-        pcBody.innerHTML = ''; pcFoot.innerHTML = ''; mobBody.innerHTML = '';
+        // ── Step 1: 매수 후 총액 산출 ──
+        const afterTotal = totalEval + monAvail;
+    
+        // ── Step 2~3: 1차 루프 - 이상적 매수액 산출 ──
+        let idealBuys = [];
+        let positiveSum = 0;
     
         stocks.forEach((s, i) => {
             const ev = pN(s.curr) * pN(s.qty);
+            const targetAmount = afterTotal * (pN(s.target) / 100);
+            const idealBuy = targetAmount - ev;
+    
+            idealBuys.push({
+                index: i,
+                ev: ev,
+                idealBuy: idealBuy
+            });
+    
+            if (idealBuy > 0) {
+                positiveSum += idealBuy;
+            }
+        });
+    
+        // ── Step 4~5: 2차 루프 - 비례 배분 & 렌더링 ──
+        const pcBody = document.getElementById('pcBody');
+        const pcFoot = document.getElementById('pcFoot');
+        const mobBody = document.getElementById('mobileBody');
+        pcBody.innerHTML = '';
+        pcFoot.innerHTML = '';
+        mobBody.innerHTML = '';
+    
+        stocks.forEach((s, i) => {
+            const ev = idealBuys[i].ev;
+            const idealBuy = idealBuys[i].idealBuy;
             const pRate = s.buy > 0 ? ((ev - s.buy) / s.buy * 100).toFixed(2) : 0;
             const weight = totalEval > 0 ? (ev / totalEval * 100).toFixed(1) : 0;
-            const buySug = Math.max(0, (totalEval * (pN(s.target)/100)) - ev);
+    
+            // ── 핵심: 비례 배분 계산 ──
+            let buySug = 0;
+            if (idealBuy > 0 && positiveSum > 0) {
+                buySug = (idealBuy / positiveSum) * monAvail;
+            }
+    
+            // 매수 후 비중 계산 (확인용)
+            const afterWeight = afterTotal > 0
+                ? ((ev + buySug) / afterTotal * 100).toFixed(1)
+                : 0;
+    
             const pClass = pRate < 0 ? 'loss' : 'gain';
             totalSugSum += buySug;
     
@@ -255,12 +295,12 @@
                 <td style="text-align: right" class="${pClass}">${pRate}%</td>
                 <td>${weight}%</td>
                 <td><input type="text" value="${s.target}" class="input-center" onchange="upd(${i},'target',pN(this.value))"></td>
-                <td style="text-align: right; color:#2563eb; font-weight:bold">${fN(buySug)}</td>
+                <td style="text-align: right; color:#2563eb; font-weight:bold">${fN(Math.round(buySug))}</td>
                 <td><button class="btn" style="padding:2px 5px; color:red;" onclick="del(${i})">×</button></td>`;
             pcBody.appendChild(tr);
         });
     
-        // 4. 전체 합계 행 렌더링
+        // 전체 합계 행 렌더링
         const ft = document.createElement('tr');
         ft.innerHTML = `
             <td colspan="2">전체 합계</td>
@@ -269,7 +309,7 @@
             <td>-</td>
             <td style="text-align: right">${fN(totalEval)}</td>
             <td colspan="3"></td>
-            <td style="text-align: right; color:#2563eb;">${fN(totalSugSum)}</td>
+            <td style="text-align: right; color:#2563eb;">${fN(Math.round(totalSugSum))}</td>
             <td></td>
         `;
         pcFoot.appendChild(ft);
