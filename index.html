@@ -251,11 +251,11 @@
                 <td><input type="text" value="${fN(s.buy)}" class="input-right" onchange="updF(${i},'buy',this)"></td>
                 <td><input type="text" value="${fN(s.qty)}" class="input-right" oninput="updF(${i},'qty',this)"></td>
                 <td><input type="text" value="${fN(s.curr)}" class="input-right" oninput="updF(${i},'curr',this)"></td>
-                <td style="text-align: left"><b>${fN(ev)}</b></td>
-                <td style="text-align: left" class="${pClass}">${pRate}%</td>
+                <td style="text-align: right"><b>${fN(ev)}</b></td>
+                <td style="text-align: right" class="${pClass}">${pRate}%</td>
                 <td>${weight}%</td>
                 <td><input type="text" value="${s.target}" class="input-center" onchange="upd(${i},'target',pN(this.value))"></td>
-                <td style="text-align: left; color:#2563eb; font-weight:bold">${fN(buySug)}</td>
+                <td style="text-align: right; color:#2563eb; font-weight:bold">${fN(buySug)}</td>
                 <td><button class="btn" style="padding:2px 5px; color:red;" onclick="del(${i})">×</button></td>`;
             pcBody.appendChild(tr);
         });
@@ -267,9 +267,9 @@
             <td style="text-align: right">${fN(totalBuySum)}</td>
             <td>-</td>
             <td>-</td>
-            <td style="text-align: left">${fN(totalEval)}</td>
+            <td style="text-align: right">${fN(totalEval)}</td>
             <td colspan="3"></td>
-            <td style="text-align: left; color:#2563eb;">${fN(totalSugSum)}</td>
+            <td style="text-align: right; color:#2563eb;">${fN(totalSugSum)}</td>
             <td></td>
         `;
         pcFoot.appendChild(ft);
