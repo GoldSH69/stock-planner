@@ -71,12 +71,11 @@
 <body>
 
 <div class="container">
-    <div id="syncStatus" style="display:none; margin-bottom:10px; padding:8px; border-radius:5px; font-size:8.5pt; font-weight:bold; text-align:center;"></div>
     <div class="card-panel">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
             <b style="font-size:11pt;">📈 스마트 투자 배분 관리</b>
             <div>
-                <button class="btn btn-main" onclick="fetchPrices(this)">🔄 시세 갱신</button>
+                <button class="btn btn-main" onclick="fetchPrices()">🔄 시세 갱신</button>
                 <button class="btn btn-main" style="background:#10b981" onclick="saveToGist()">💾 Gist 저장</button>
                 <button class="btn" onclick="toggleModal(true)">⚙️ 설정</button>
             </div>
@@ -113,7 +112,7 @@
 <div id="configModal">
     <b style="font-size:10pt">⚙️ Gist 연동 설정</b><br><br>
     <span class="label" style="text-align:left">GitHub Personal Access Token</span>
-    <input type="password" id="ghToken" autocomplete="off" style="width:100%; text-align:left; margin-bottom:12px; padding:6px;">
+    <input type="password" id="ghToken" style="width:100%; text-align:left; margin-bottom:12px; padding:6px;">
     <span class="label" style="text-align:left">Gist ID</span>
     <input type="text" id="gistId" style="width:100%; text-align:left; margin-bottom:18px; padding:6px;">
     <button class="btn btn-main" style="width:100%; padding:10px;" onclick="saveSettings()">설정 저장 및 데이터 로드</button>
@@ -126,7 +125,7 @@
     // 유틸리티: 콤마 포맷
     function fN(n) { return Math.floor(n).toLocaleString(); }
     function pN(s) { return parseFloat(String(s).replace(/,/g, '')) || 0; }
-    function uiFormat(el) { el.value = fN(pN(el.value)); }
+    function uiFormat(el) { el.value = fN(pN(el.value)); calculate(); }
     function toggleModal(s) { document.getElementById('configModal').style.display = s?'block':'none'; document.getElementById('overlay').style.display = s?'block':'none'; }
 
     // 설정 관리
@@ -137,24 +136,38 @@
         loadFromGist();
     }
 
-    async function fetchPrices(btn){
-        const originalText = btn.innerText;
-        btn.innerText = "🔄 시세 갱신 중...";
-        btn.disabled = true;
-    
-        const codes = stocks.map(s => s.code).join(",");
+    // 시세 갱신 (다중 프록시 및 코드 보정 반영)
+    async function fetchPrices() {
+        const proxies = [
+            (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+            (url) => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`
+        ];
 
-        const res = await fetch(`https://YOUR_WORKER_URL?codes=${codes}`);
-        const data = await res.json();
-        
-        stocks.forEach(s => {
-          s.curr = data[s.code] || 0;
-        });
-    
+        for (let s of stocks) {
+            if (!s.code) continue;
+            let fCode = s.code.toUpperCase().trim();
+            if (!fCode.includes('.')) fCode += '.KS'; 
+            const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${fCode}`;
+            
+            for (let getProxy of proxies) {
+                try {
+                    const res = await fetch(getProxy(targetUrl));
+                    let data;
+                    if (getProxy.toString().includes('allorigins')) {
+                        const json = await res.json();
+                        data = JSON.parse(json.contents);
+                    } else {
+                        data = await res.json();
+                    }
+                    if (data.chart.result) {
+                        s.curr = data.chart.result[0].meta.regularMarketPrice;
+                        break; 
+                    }
+                } catch (e) { continue; }
+            }
+        }
         calculate();
-    
-        btn.innerText = originalText;
-        btn.disabled = false;
+        alert("시세 갱신이 완료되었습니다.");
     }
 
     // Gist 연동
@@ -176,74 +189,20 @@
     }
 
     async function saveToGist() {
-        // 1. 설정값 및 상태 표시바 준비
-        const t = localStorage.getItem('ghToken');
-        let id = localStorage.getItem('gistId'); // let으로 선언하여 신규 ID 할당 가능하게 함
-        const statusEl = document.getElementById('syncStatus');
-        
-        if (!t) return alert("⚙️ 설정에서 GitHub 토큰을 먼저 입력하세요.");
-
-        // 2. [핵심] ID 유무에 따른 분기 처리 (프롬프트 매니저 로직)
-        const method = id ? 'PATCH' : 'POST';
-        const url = id ? `https://api.github.com/gists/${id}` : 'https://api.github.com/gists';
-
-        // 시각적 피드백 시작
-        statusEl.style.display = 'block';
-        statusEl.style.background = '#e8f0fa';
-        statusEl.style.color = '#2563eb';
-        statusEl.innerText = id ? "⬆️ 기존 Gist 업데이트 중..." : "🆕 새 Gist 생성 및 저장 중...";
-
-        // 3. 전송할 데이터 구조화
-        const payload = {
-            description: "Stock Asset Master Portfolio",
-            public: false,
-            files: {
-                [FILENAME]: {
-                    content: JSON.stringify({
-                        stocks,
-                        totalBudget: pN(document.getElementById('totalBudget').value),
-                        currentInvested: pN(document.getElementById('currentInvested').value),
-                        memo: document.getElementById('memoArea').value,
-                        lastUpdated: new Date().toLocaleString()
-                    }, null, 2)
-                }
-            }
-        };
-
+        const t = localStorage.getItem('ghToken'), id = localStorage.getItem('gistId');
+        if (!t || !id) return alert("⚙️ 설정에서 토큰과 Gist ID를 먼저 입력하세요.");
+        const payload = { files: { [FILENAME]: { content: JSON.stringify({
+            stocks, totalBudget: pN(document.getElementById('totalBudget').value),
+            currentInvested: pN(document.getElementById('currentInvested').value),
+            memo: document.getElementById('memoArea').value
+        }) } } };
         try {
-            // 4. API 호출
-            const res = await fetch(url, {
-                method: method,
-                headers: {
-                    'Authorization': `token ${t}`,
-                    'Content-Type': 'application/json'
-                },
+            const res = await fetch(`https://api.github.com/gists/${id}`, {
+                method: 'PATCH', headers: {'Authorization': `token ${t}`, 'Content-Type': 'application/json'},
                 body: JSON.stringify(payload)
             });
-
-            if (res.ok) {
-                const result = await res.json();
-                
-                // 5. [핵심] 신규 생성 시 발급된 ID를 로컬에 저장
-                if (!id && result.id) {
-                    localStorage.setItem('gistId', result.id);
-                    document.getElementById('gistId').value = result.id; // 설정창 UI도 갱신
-                }
-
-                statusEl.style.background = '#e6f5ee';
-                statusEl.style.color = '#10b981';
-                statusEl.innerText = `✅ ${id ? '업데이트' : '신규 생성'} 완료 (${new Date().toLocaleTimeString()})`;
-                setTimeout(() => { statusEl.style.display = 'none'; }, 3000);
-            } else {
-                const errData = await res.json();
-                throw new Error(errData.message);
-            }
-        } catch (e) {
-            console.error("Gist 저장 실패:", e);
-            statusEl.style.background = '#fce8e8';
-            statusEl.style.color = '#ef4444';
-            statusEl.innerText = "❌ 저장 실패: " + e.message;
-        }
+            if(res.ok) alert("✅ Gist에 안전하게 저장되었습니다.");
+        } catch(e) { alert("❌ 저장 실패"); }
     }
 
     // 핵심 계산 로직
@@ -275,7 +234,7 @@
             tr.innerHTML = `
                 <td><input type="text" value="${s.code}" class="input-center" onchange="upd(${i},'code',this.value)"></td>
                 <td><input type="text" value="${s.name}" class="input-center" onchange="upd(${i},'name',this.value)"></td>
-                <td><input type="text" value="${fN(s.buy)}" onchange="updRaw(${i},'buy',this.value)"></td>
+                <td><input type="text" value="${fN(s.buy)}" onchange="updF(${i},'buy',this)"></td>
                 <td><input type="text" value="${fN(s.qty)}" oninput="updF(${i},'qty',this)"></td>
                 <td>${fN(s.curr)}</td><td><b>${fN(ev)}</b></td>
                 <td class="${pClass}">${pRate}%</td><td>${weight}%</td>
@@ -301,8 +260,7 @@
     function updF(i, k, el) { let v = pN(el.value); el.value = fN(v); stocks[i][k] = v; }
     function addStock() { stocks.push({code:'', name:'', buy:0, qty:0, curr:0, target:0}); calculate(); }
     function del(i) { if(confirm("삭제하시겠습니까?")) { stocks.splice(i, 1); calculate(); } }
-    function updRaw(i,k,v){ stocks[i][k] = pN(v); calculate(); }
-    
+
     window.onload = () => {
         document.getElementById('ghToken').value = localStorage.getItem('ghToken') || "";
         document.getElementById('gistId').value = localStorage.getItem('gistId') || "";
