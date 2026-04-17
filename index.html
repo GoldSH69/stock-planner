@@ -40,6 +40,15 @@
         }
         .input-center { text-align: center; }
 
+        /* 1. 스타일 섹션에 추가 (위치: <style> 태그 내부) */
+        .input-left { text-align: left !important; }
+        .input-right { text-align: right !important; }
+        .input-center { text-align: center !important; }
+        
+        /* 합계 행(tfoot) 스타일 전용 */
+        tfoot tr { background: #f1f5f9; font-weight: bold; border-top: 2px solid #cbd5e1; }
+        tfoot td { border: 1px solid #eee; padding: 6px 4px; }
+        
         /* 메모창 폰트 고정 */
         #memoArea { 
             width: 100%; height: 150px; margin-top: 15px; padding: 12px; 
@@ -99,6 +108,7 @@
                 </tr>
             </thead>
             <tbody id="pcBody"></tbody>
+            <tfoot id="pcFoot"></tfoot>
         </table>
         
         <div id="mobileBody" class="mobile-list"></div>
@@ -217,43 +227,52 @@
         document.getElementById('resRem').innerText = fN(rem);
         const monAvail = remM > 0 ? rem/remM : rem;
         document.getElementById('resMonAvail').innerText = fN(monAvail);
-
-        let totalEval = stocks.reduce((a, s) => a + (s.curr * s.qty), 0);
-        const pcBody = document.getElementById('pcBody'), mobBody = document.getElementById('mobileBody');
-        pcBody.innerHTML = ''; mobBody.innerHTML = '';
-
+    
+        let totalEval = stocks.reduce((a, s) => a + (pN(s.curr) * pN(s.qty)), 0);
+        let totalBuySum = stocks.reduce((a, s) => a + pN(s.buy), 0);
+        let totalSugSum = 0;
+    
+        const pcBody = document.getElementById('pcBody'), pcFoot = document.getElementById('pcFoot'), mobBody = document.getElementById('mobileBody');
+        pcBody.innerHTML = ''; pcFoot.innerHTML = ''; mobBody.innerHTML = '';
+    
         stocks.forEach((s, i) => {
-            const ev = s.curr * s.qty;
+            const ev = pN(s.curr) * pN(s.qty);
             const pRate = s.buy > 0 ? ((ev - s.buy) / s.buy * 100).toFixed(2) : 0;
             const weight = totalEval > 0 ? (ev / totalEval * 100).toFixed(1) : 0;
-            const buySug = Math.max(0, (totalEval * (s.target/100)) - ev);
+            const buySug = Math.max(0, (totalEval * (pN(s.target)/100)) - ev);
             const pClass = pRate < 0 ? 'loss' : 'gain';
-
+            totalSugSum += buySug;
+    
             // Desktop Table Rendering
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td><input type="text" value="${s.code}" class="input-center" onchange="upd(${i},'code',this.value)"></td>
-                <td><input type="text" value="${s.name}" class="input-center" onchange="upd(${i},'name',this.value)"></td>
-                <td><input type="text" value="${fN(s.buy)}" onchange="updF(${i},'buy',this)"></td>
-                <td><input type="text" value="${fN(s.qty)}" oninput="updF(${i},'qty',this)"></td>
-                <td>${fN(s.curr)}</td><td><b>${fN(ev)}</b></td>
-                <td class="${pClass}">${pRate}%</td><td>${weight}%</td>
+                <td><input type="text" value="${s.name}" class="input-left" onchange="upd(${i},'name',this.value)"></td>
+                <td><input type="text" value="${fN(s.buy)}" class="input-right" onchange="updF(${i},'buy',this)"></td>
+                <td><input type="text" value="${fN(s.qty)}" class="input-right" oninput="updF(${i},'qty',this)"></td>
+                <td><input type="text" value="${fN(s.curr)}" class="input-right" oninput="updF(${i},'curr',this)"></td>
+                <td style="text-align: left"><b>${fN(ev)}</b></td>
+                <td style="text-align: left" class="${pClass}">${pRate}%</td>
+                <td>${weight}%</td>
                 <td><input type="text" value="${s.target}" class="input-center" onchange="upd(${i},'target',pN(this.value))"></td>
-                <td style="color:#2563eb; font-weight:bold">${fN(buySug)}</td>
+                <td style="text-align: left; color:#2563eb; font-weight:bold">${fN(buySug)}</td>
                 <td><button class="btn" style="padding:2px 5px; color:red;" onclick="del(${i})">×</button></td>`;
             pcBody.appendChild(tr);
-
-            // Mobile Card Rendering
-            const card = document.createElement('div');
-            card.className = 'stock-card';
-            card.innerHTML = `
-                <div class="card-row"><b>${s.name || '종목명 미입력'}</b> <span>${s.code}</span></div>
-                <div class="card-row"><span class="label">수익률</span><span class="${pClass}">${pRate}%</span></div>
-                <div class="card-row"><span class="label">평가액 / 비중</span><span>${fN(ev)} (${weight}%)</span></div>
-                <div class="card-row"><span class="label">추가매수 필요액</span><b style="color:#2563eb">${fN(buySug)}</b></div>
-            `;
-            mobBody.appendChild(card);
         });
+    
+        // 4. 전체 합계 행 렌더링
+        const ft = document.createElement('tr');
+        ft.innerHTML = `
+            <td colspan="2">전체 합계</td>
+            <td style="text-align: right">${fN(totalBuySum)}</td>
+            <td>-</td>
+            <td>-</td>
+            <td style="text-align: left">${fN(totalEval)}</td>
+            <td colspan="3"></td>
+            <td style="text-align: left; color:#2563eb;">${fN(totalSugSum)}</td>
+            <td></td>
+        `;
+        pcFoot.appendChild(ft);
     }
 
     function upd(i, k, v) { stocks[i][k] = v; calculate(); }
