@@ -321,7 +321,32 @@
         `;
         pcFoot.appendChild(ft);
     }
-
+    // 화면의 입력값들을 stocks 배열에 동기화하고 계산을 수행하는 함수
+    function uiCalculate() {
+        // 1. 상단 요약 바 값 동기화
+        const budgetValue = pN(document.getElementById('totalBudget').value);
+        const investedValue = pN(document.getElementById('currentInvested').value);
+        
+        // 2. 테이블 내 입력값들을 stocks 배열에 업데이트
+        const rows = document.querySelectorAll('#pcBody tr');
+        rows.forEach((row, i) => {
+            if (!stocks[i]) return;
+            const inputs = row.querySelectorAll('input');
+            if (inputs.length >= 6) {
+                stocks[i].code = inputs[0].value;
+                stocks[i].name = inputs[1].value;
+                stocks[i].buy = pN(inputs[2].value);
+                stocks[i].qty = pN(inputs[3].value);
+                stocks[i].curr = pN(inputs[4].value);
+                stocks[i].target = pN(inputs[5].value);
+            }
+        });
+    
+        // 3. 핵심 연산 로직 호출
+        calculate();
+        console.log("계산 완료");
+    }
+    
     function upd(i, k, v) { stocks[i][k] = v; calculate(); }
     function updF(i, k, el) { let v = pN(el.value); el.value = fN(v); stocks[i][k] = v; }
     function addStock() { stocks.push({code:'', name:'', buy:0, qty:0, curr:0, target:0}); calculate(); }
