@@ -3,143 +3,512 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stock Asset Master v1.0</title>
+    <title>스마트 투자 배분 관리 (Stock Planner)</title>
+    <!-- Google Fonts: Inter for premium typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        /* 1. 폰트 및 기본 스타일 강제 고정 */
-        * { box-sizing: border-box; }
-        body { 
-            font-family: 'Malgun Gothic', '맑은 고딕', sans-serif !important; 
-            font-size: 9pt !important; 
-            background: #f4f7f9; 
-            margin: 0; padding: 10px; color: #333; 
+        /* 1. 디자인 시스템 정의 (슬레이트 & 인디고 테마) */
+        * { 
+            box-sizing: border-box; 
+            margin: 0; 
+            padding: 0;
         }
-        .container { width: 100%; max-width: 1100px; margin: 0 auto; }
-        .card-panel { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.08); margin-bottom: 15px; }
+        body { 
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, 'Malgun Gothic', '맑은 고딕', sans-serif !important; 
+            font-size: 13px !important; 
+            background: #f8fafc; /* Slate 50 */
+            color: #0f172a; /* Slate 900 */
+            padding: 20px 10px;
+            line-height: 1.5;
+        }
+        .container { 
+            width: 100%; 
+            max-width: 1200px; 
+            margin: 0 auto; 
+        }
         
-        /* 요약 바 */
-        .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
-        .stat-box { padding: 10px; background: #fafafa; border: 1px solid #eee; border-radius: 4px; text-align: center; }
-        .label { display: block; font-size: 8pt; color: #888; margin-bottom: 4px; }
-        .value { font-weight: bold; font-size: 9pt; }
+        /* 카드 패널 */
+        .card-panel { 
+            background: #ffffff; 
+            padding: 20px; 
+            border-radius: 12px; 
+            border: 1px solid #e2e8f0; /* Slate 200 */
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05); 
+            margin-bottom: 20px; 
+        }
+        
+        /* 요약 대시보드 그리드 */
+        .summary-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); 
+            gap: 12px; 
+            margin-top: 10px;
+        }
+        .stat-box { 
+            padding: 14px 16px; 
+            background: #ffffff; 
+            border: 1px solid #e2e8f0; 
+            border-radius: 10px; 
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            transition: all 0.2s ease;
+        }
+        .stat-box:hover {
+            border-color: #cbd5e1;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02);
+        }
+        .stat-box .label { 
+            display: block; 
+            font-size: 10.5px; 
+            font-weight: 600;
+            color: #64748b; /* Slate 500 */
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 8px; 
+            text-align: left;
+        }
+        .stat-box .value { 
+            font-weight: 700; 
+            font-size: 15px; 
+            text-align: right;
+            color: #0f172a;
+        }
+        
+        /* 상단 입력창 및 선택창 스타일 */
+        .stat-box input, .stat-box select { 
+            font-family: inherit !important;
+            font-weight: 700; 
+            font-size: 15px; 
+            color: #0f172a;
+            width: 100%; 
+            border: none;
+            border-bottom: 1.5px dashed #cbd5e1;
+            border-radius: 0;
+            padding: 2px 0; 
+            text-align: right; 
+            background: transparent;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+        .stat-box input:focus, .stat-box select:focus {
+            border-bottom-color: #4f46e5;
+            background: rgba(99, 102, 241, 0.02);
+        }
+        .stat-box select {
+            cursor: pointer;
+            text-align-last: right;
+            padding-right: 4px;
+        }
 
-        /* 테이블 너비 최적화 (추천안 반영) */
+        /* 테이블 스타일 */
+        .table-responsive {
+            width: 100%;
+            overflow-x: auto;
+            margin-top: 15px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
         .desktop-table { 
-            width: 100%; border-collapse: collapse; margin-top: 10px; 
-            table-layout: fixed; /* 너비 고정 핵심 */
+            width: 100%; 
+            border-collapse: separate; 
+            border-spacing: 0;
+            table-layout: fixed;
         }
         .desktop-table th, .desktop-table td { 
-            border: 1px solid #eee; padding: 6px 4px; text-align: center; 
-            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+            padding: 10px 8px; 
+            border-bottom: 1px solid #f1f5f9; 
+            text-align: center; 
+            overflow: hidden; 
+            text-overflow: ellipsis; 
+            white-space: nowrap;
         }
-        .desktop-table th { background: #f8f9fa; font-weight: bold; }
+        .desktop-table th { 
+            background: #f8fafc; 
+            font-weight: 600; 
+            color: #475569;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        .desktop-table tbody tr {
+            transition: background-color 0.15s ease;
+        }
+        .desktop-table tbody tr:hover {
+            background-color: #f8fafc;
+        }
         
-        /* 입력창 스타일 */
-        input { 
-            font-family: 'Malgun Gothic' !important; font-size: 9pt !important; 
-            width: 100%; border: 1px solid #ddd; padding: 3px; border-radius: 2px; text-align: right; 
+        /* 테이블 입력창 스타일 */
+        .desktop-table input { 
+            font-family: inherit !important; 
+            font-size: 12.5px !important; 
+            width: 100%; 
+            border: 1px solid #e2e8f0; 
+            padding: 5px 8px; 
+            border-radius: 6px; 
+            background-color: #ffffff;
+            transition: all 0.15s ease;
         }
-        .input-center { text-align: center; }
-
-        /* 1. 스타일 섹션에 추가 (위치: <style> 태그 내부) */
+        .desktop-table input:focus {
+            outline: none;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+        }
         .input-left { text-align: left !important; }
         .input-right { text-align: right !important; }
         .input-center { text-align: center !important; }
         
-        /* 합계 행(tfoot) 스타일 전용 */
-        tfoot tr { background: #f1f5f9; font-weight: bold; border-top: 2px solid #cbd5e1; }
-        tfoot td { border: 1px solid #eee; padding: 6px 4px; }
+        /* 합계 행(tfoot) 스타일 */
+        tfoot tr { 
+            background: #f8fafc; 
+            font-weight: 600; 
+            border-top: 2px solid #e2e8f0; 
+        }
+        tfoot td { 
+            border-bottom: none;
+            padding: 12px 8px; 
+            color: #1e293b;
+        }
         
-        /* 메모창 폰트 고정 */
+        /* 메모창 스타일 */
         #memoArea { 
-            width: 100%; height: 150px; margin-top: 15px; padding: 12px; 
-            resize: vertical; border-radius: 4px; border: 1px solid #ccc;
-            font-family: 'Malgun Gothic', '맑은 고딕', sans-serif !important; 
-            font-size: 9pt !important; line-height: 1.6;
+            width: 100%; 
+            height: 120px; 
+            margin-top: 15px; 
+            padding: 12px; 
+            resize: vertical; 
+            border-radius: 8px; 
+            border: 1px solid #e2e8f0;
+            font-family: inherit; 
+            font-size: 13px !important; 
+            line-height: 1.6;
+            transition: all 0.15s ease;
+        }
+        #memoArea:focus {
+            outline: none;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
         }
 
         /* 반응형 제어 */
-        .mobile-list { display: none; margin-top: 10px; }
+        .mobile-list { display: none; margin-top: 15px; }
         @media (max-width: 950px) {
-            .desktop-table { display: none; }
+            .table-responsive { display: none; }
             .mobile-list { display: block; }
         }
-        .stock-card { background: #fff; border: 1px solid #ddd; padding: 12px; border-radius: 6px; margin-bottom: 10px; }
-        .card-row { display: flex; justify-content: space-between; margin-bottom: 5px; border-bottom: 1px dashed #eee; padding-bottom: 3px; }
+        
+        /* 모바일용 종목 카드 */
+        .stock-card { 
+            background: #ffffff; 
+            border: 1px solid #e2e8f0; 
+            padding: 16px; 
+            border-radius: 12px; 
+            margin-bottom: 12px; 
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+        }
+        .card-row { 
+            display: flex; 
+            justify-content: space-between; 
+            margin-bottom: 8px; 
+            padding-bottom: 4px; 
+        }
+        .mobile-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .mobile-grid > div {
+            display: flex;
+            flex-direction: column;
+        }
+        .mobile-grid .label {
+            font-size: 10px;
+            color: #64748b;
+            margin-bottom: 3px;
+        }
+        .mobile-grid input {
+            width: 100%;
+            padding: 5px 8px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 12.5px;
+        }
+        .mobile-grid input:focus {
+            outline: none;
+            border-color: #4f46e5;
+        }
 
-        /* 색상 코드 */
-        .btn { padding: 6px 12px; border-radius: 4px; cursor: pointer; border: 1px solid #ccc; background: #fff; font-size: 8.5pt; font-family: inherit; }
-        .btn-main { background: #2563eb; color: #fff; border: none; }
-        .loss { color: #ef4444; font-weight: bold; } /* 마이너스 빨간색 */
-        .gain { color: #3b82f6; font-weight: bold; } /* 플러스 파란색 */
+        /* 버튼 및 뱃지 스타일 */
+        .btn { 
+            padding: 8px 14px; 
+            border-radius: 8px; 
+            cursor: pointer; 
+            border: 1px solid #cbd5e1; 
+            background: #ffffff; 
+            font-size: 12.5px; 
+            font-weight: 500;
+            font-family: inherit;
+            color: #334155;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.15s ease;
+        }
+        .btn:hover {
+            background: #f8fafc;
+            border-color: #94a3b8;
+        }
+        .btn-main { 
+            background: #4f46e5; /* Indigo 600 */
+            color: #ffffff; 
+            border: none; 
+        }
+        .btn-main:hover { 
+            background: #4338ca; /* Indigo 700 */
+        }
+        .btn-delete {
+            background: none;
+            border: none;
+            color: #94a3b8;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 6px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s ease;
+        }
+        .btn-delete:hover {
+            background: #fee2e2;
+            color: #ef4444;
+        }
+        
+        /* 손익 칼라 디자인 */
+        .loss { 
+            color: #e11d48; /* soft crimson */
+            font-weight: 600; 
+            background: #fff1f2;
+            padding: 2px 6px;
+            border-radius: 4px;
+            display: inline-block;
+        }
+        .gain { 
+            color: #059669; /* soft emerald */
+            font-weight: 600; 
+            background: #ecfdf5;
+            padding: 2px 6px;
+            border-radius: 4px;
+            display: inline-block;
+        }
 
         /* 설정 모달 */
-        #configModal { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 25px; z-index: 1000; border-radius: 10px; width: 300px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
-        .overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:999; }
+        #configModal { 
+            display: none; 
+            position: fixed; 
+            top: 50%; 
+            left: 50%; 
+            transform: translate(-50%, -50%); 
+            background: white; 
+            padding: 24px; 
+            z-index: 1000; 
+            border-radius: 16px; 
+            width: 340px; 
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); 
+            border: 1px solid #e2e8f0;
+        }
+        .overlay { 
+            display: none; 
+            position: fixed; 
+            top:0; 
+            left:0; 
+            width:100%; 
+            height:100%; 
+            background: rgba(15, 23, 42, 0.3); 
+            backdrop-filter: blur(4px); 
+            z-index:999; 
+        }
+        
+        /* 헤더 스타일 */
+        .header-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #0f172a;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
     </style>
 </head>
 <body>
 
 <div class="container">
+    <!-- 상단 대시보드 카드 -->
     <div class="card-panel">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-            <b style="font-size:11pt;">📈 스마트 투자 배분 관리</b>
-            <div>
-                <button class="btn btn-main" style="background:#6366f1" onclick="uiCalculate()">📊 계산 실행</button>
-                <button class="btn btn-main" onclick="fetchPrices()">🔄 시세 갱신</button>
-                <button class="btn btn-main" style="background:#10b981" onclick="saveToGist()">💾 Gist 저장</button>
-                <button class="btn" onclick="toggleModal(true)">⚙️ 설정</button>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap: wrap; gap: 10px;">
+            <div class="header-title">
+                <span>📈</span> 스마트 투자 배분 관리 (Stock Planner)
+            </div>
+            <div style="display:flex; gap:8px;">
+                <button class="btn" onclick="fetchPrices()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+                    시세 갱신
+                </button>
+                <button class="btn btn-main" onclick="saveToGist()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                    Gist 저장
+                </button>
+                <button class="btn" onclick="toggleModal(true)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1-2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.5 1z"/></svg>
+                    설정
+                </button>
             </div>
         </div>
         <div class="summary-grid">
-            <div class="stat-box"><span class="label">총 투자 가용금</span><input type="text" id="totalBudget" value="0" oninput="uiFormat(this)"></div>
-            <div class="stat-box"><span class="label">기투자 금액</span><input type="text" id="currentInvested" value="0" oninput="uiFormat(this)"></div>
-            <div class="stat-box"><span class="label">투자 잔여금</span><div class="value" id="resRem">0</div></div>
-            <div class="stat-box"><span class="label">현재/잔여월</span><div class="value" id="resMonth"></div></div>
-            <div class="stat-box"><span class="label">월별 투자가능액</span><div class="value" id="resMonAvail" style="color:#2563eb">0</div></div>
+            <div class="stat-box">
+                <span class="label">총 투자 가용금 (년)</span>
+                <input type="text" id="totalBudget" value="20,000,000" onchange="uiFormat(this)">
+            </div>
+            <div class="stat-box" style="background-color: #f8fafc;">
+                <span class="label">기투자 금액 (매입합계)</span>
+                <input type="text" id="currentInvested" value="0" readonly style="border-bottom:none; color:#475569; cursor:not-allowed;">
+            </div>
+            <div class="stat-box">
+                <span class="label">년간 잔여 투자금</span>
+                <div class="value" id="resRem">0</div>
+            </div>
+            <div class="stat-box">
+                <span class="label">기준 월 선택</span>
+                <select id="planMonth" onchange="calculate()">
+                    <option value="1">1월</option>
+                    <option value="2">2월</option>
+                    <option value="3">3월</option>
+                    <option value="4">4월</option>
+                    <option value="5">5월</option>
+                    <option value="6">6월</option>
+                    <option value="7">7월</option>
+                    <option value="8">8월</option>
+                    <option value="9">9월</option>
+                    <option value="10">10월</option>
+                    <option value="11">11월</option>
+                    <option value="12">12월</option>
+                </select>
+            </div>
+            <div class="stat-box">
+                <span class="label">누적 가용 투자금</span>
+                <div class="value" id="accumBudget" style="color:#475569;">0</div>
+            </div>
+            <div class="stat-box" style="background: #eef2ff; border-color: #c7d2fe;">
+                <span class="label" style="color: #4f46e5; font-weight: 700;">당월 잔여 투자금 (이월 포함)</span>
+                <div class="value" id="resMonAvail" style="color:#4f46e5; font-size: 16px;">0</div>
+            </div>
         </div>
     </div>
 
+    <!-- 하단 리스트 및 분석 카드 -->
     <div class="card-panel">
-        <table class="desktop-table">
-            <colgroup>
-                <col style="width: 85px;">  <col style="width: auto;">  <col style="width: 105px;"> <col style="width: 60px;">  <col style="width: 90px;">  <col style="width: 105px;"> <col style="width: 70px;">  <col style="width: 60px;">  <col style="width: 60px;">  <col style="width: 100px;"> <col style="width: 35px;">  </colgroup>
-            <thead>
-                <tr>
-                    <th>코드</th><th>종목명</th><th>매입액</th><th>수량</th><th>현재가</th><th>평가액</th><th>손익%</th><th>비중</th><th>목표%</th><th>추가매수</th><th></th>
-                </tr>
-            </thead>
-            <tbody id="pcBody"></tbody>
-            <tfoot id="pcFoot"></tfoot>
-        </table>
+        <div class="table-responsive">
+            <table class="desktop-table">
+                <colgroup>
+                    <col style="width: 100px;">  <!-- 코드 -->
+                    <col style="width: auto;">   <!-- 종목명 -->
+                    <col style="width: 120px;">  <!-- 매입액 -->
+                    <col style="width: 80px;">   <!-- 수량 -->
+                    <col style="width: 110px;">  <!-- 현재가 -->
+                    <col style="width: 120px;">  <!-- 평가액 -->
+                    <col style="width: 85px;">   <!-- 손익% -->
+                    <col style="width: 75px;">   <!-- 비중 -->
+                    <col style="width: 80px;">   <!-- 목표% -->
+                    <col style="width: 120px;">  <!-- 추가매수 추천 -->
+                    <col style="width: 45px;">   <!-- 삭제버튼 -->
+                </colgroup>
+                <thead>
+                    <tr>
+                        <th>코드</th>
+                        <th>종목명</th>
+                        <th>매입액</th>
+                        <th>수량</th>
+                        <th>현재가</th>
+                        <th>평가액</th>
+                        <th>손익%</th>
+                        <th>비중</th>
+                        <th>목표%</th>
+                        <th style="color:#4f46e5;">추가매수</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="pcBody"></tbody>
+                <tfoot id="pcFoot"></tfoot>
+            </table>
+        </div>
         
+        <!-- 모바일 뷰 리스트 영역 -->
         <div id="mobileBody" class="mobile-list"></div>
         
-        <button class="btn" style="margin-top:15px;" onclick="addStock()">+ 종목 추가</button>
-        <textarea id="memoArea" placeholder="투자 분석 및 특이사항을 기록하세요."></textarea>
+        <div style="margin-top: 20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+            <button class="btn" onclick="addStock()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                종목 추가
+            </button>
+        </div>
+        
+        <textarea id="memoArea" placeholder="투자 분석 및 특이사항을 기록하세요. 입력한 내용은 자동으로 로컬 브라우저에 저장됩니다." onchange="saveToLocal()"></textarea>
     </div>
 </div>
 
+<!-- Gist 설정 모달 overlay -->
 <div class="overlay" id="overlay" onclick="toggleModal(false)"></div>
 <div id="configModal">
-    <b style="font-size:10pt">⚙️ Gist 연동 설정</b><br><br>
-    <span class="label" style="text-align:left">GitHub Personal Access Token</span>
-    <input type="password" id="ghToken" style="width:100%; text-align:left; margin-bottom:12px; padding:6px;">
-    <span class="label" style="text-align:left">Gist ID</span>
-    <input type="text" id="gistId" style="width:100%; text-align:left; margin-bottom:18px; padding:6px;">
-    <button class="btn btn-main" style="width:100%; padding:10px;" onclick="saveSettings()">설정 저장 및 데이터 로드</button>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
+        <b style="font-size:14px; color:#1e293b;">⚙️ GitHub Gist 연동 설정</b>
+        <button class="btn-delete" style="padding: 2px;" onclick="toggleModal(false)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+    </div>
+    
+    <div style="margin-bottom: 12px;">
+        <span class="label" style="display:block; font-size:11px; font-weight:600; color:#64748b; margin-bottom:4px;">GitHub Personal Access Token</span>
+        <input type="password" id="ghToken" style="width:100%; border: 1px solid #cbd5e1; border-radius:6px; padding:8px 10px; font-size:12px; text-align:left;">
+    </div>
+    
+    <div style="margin-bottom: 20px;">
+        <span class="label" style="display:block; font-size:11px; font-weight:600; color:#64748b; margin-bottom:4px;">Gist ID</span>
+        <input type="text" id="gistId" style="width:100%; border: 1px solid #cbd5e1; border-radius:6px; padding:8px 10px; font-size:12px; text-align:left;">
+    </div>
+    
+    <button class="btn btn-main" style="width:100%; justify-content:center; padding:10px;" onclick="saveSettings()">
+        설정 저장 및 데이터 로드
+    </button>
 </div>
 
 <script>
     let stocks = [];
     const FILENAME = 'stock_portfolio.json';
+    const LOCAL_STORAGE_KEY = 'stock_planner_data';
 
-    // 유틸리티: 콤마 포맷
-    function fN(n) { return Math.floor(n).toLocaleString(); }
-    function pN(s) { return parseFloat(String(s).replace(/,/g, '')) || 0; }
-    function uiFormat(el) { el.value = fN(pN(el.value)); calculate(); }
-    function toggleModal(s) { document.getElementById('configModal').style.display = s?'block':'none'; document.getElementById('overlay').style.display = s?'block':'none'; }
+    // 유틸리티: 숫자 콤마 포맷팅 및 역포맷팅
+    function fN(n) { 
+        return Math.floor(n).toLocaleString(); 
+    }
+    
+    function pN(s) { 
+        return parseFloat(String(s).replace(/,/g, '')) || 0; 
+    }
+    
+    function uiFormat(el) { 
+        let rawVal = pN(el.value);
+        el.value = fN(rawVal); 
+        calculate(); 
+    }
+    
+    function toggleModal(s) { 
+        document.getElementById('configModal').style.display = s?'block':'none'; 
+        document.getElementById('overlay').style.display = s?'block':'none'; 
+    }
 
-    // 설정 관리
+    // 설정 관리 및 Gist 로드
     function saveSettings() {
         localStorage.setItem('ghToken', document.getElementById('ghToken').value);
         localStorage.setItem('gistId', document.getElementById('gistId').value);
@@ -147,7 +516,37 @@
         loadFromGist();
     }
 
-    // 시세 갱신 (다중 프록시 및 코드 보정 반영)
+    // 로컬 브라우저 자동 저장
+    function saveToLocal() {
+        const data = {
+            stocks,
+            totalBudget: pN(document.getElementById('totalBudget').value),
+            planMonth: parseInt(document.getElementById('planMonth').value),
+            memo: document.getElementById('memoArea').value
+        };
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data));
+    }
+
+    // 로컬 데이터 불러오기
+    function loadFromLocal() {
+        const localData = localStorage.getItem(LOCAL_STORAGE_KEY);
+        if (localData) {
+            try {
+                const c = JSON.parse(localData);
+                stocks = c.stocks || [];
+                document.getElementById('totalBudget').value = fN(c.totalBudget !== undefined ? c.totalBudget : 20000000);
+                document.getElementById('planMonth').value = c.planMonth || (new Date().getMonth() + 1);
+                document.getElementById('memoArea').value = c.memo || "";
+                calculate();
+                return true;
+            } catch(e) {
+                console.error("로컬 백업 데이터 파싱 실패", e);
+            }
+        }
+        return false;
+    }
+
+    // Yahoo Finance 실시간 시세 갱신
     async function fetchPrices() {
         const proxies = [
             (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
@@ -174,14 +573,16 @@
                         s.curr = data.chart.result[0].meta.regularMarketPrice;
                         break; 
                     }
-                } catch (e) { continue; }
+                } catch (e) { 
+                    continue; 
+                }
             }
         }
         calculate();
         alert("시세 갱신이 완료되었습니다.");
     }
 
-    // Gist 연동
+    // Gist 연동 데이터 로드
     async function loadFromGist() {
         const t = localStorage.getItem('ghToken'), id = localStorage.getItem('gistId');
         if (!t || !id) return;
@@ -191,170 +592,308 @@
             if (data.files[FILENAME]) {
                 const c = JSON.parse(data.files[FILENAME].content);
                 stocks = c.stocks || [];
-                document.getElementById('totalBudget').value = fN(c.totalBudget || 0);
-                document.getElementById('currentInvested').value = fN(c.currentInvested || 0);
+                document.getElementById('totalBudget').value = fN(c.totalBudget !== undefined ? c.totalBudget : 20000000);
+                document.getElementById('planMonth').value = c.planMonth || (new Date().getMonth() + 1);
                 document.getElementById('memoArea').value = c.memo || "";
                 calculate();
+                saveToLocal(); // 로컬 캐시 갱신
             }
-        } catch(e) { console.error("로드 실패"); }
+        } catch(e) { 
+            console.error("Gist 로드 실패, 로컬 데이터를 사용합니다."); 
+        }
     }
 
+    // Gist 저장
     async function saveToGist() {
         const t = localStorage.getItem('ghToken'), id = localStorage.getItem('gistId');
         if (!t || !id) return alert("⚙️ 설정에서 토큰과 Gist ID를 먼저 입력하세요.");
         const payload = { files: { [FILENAME]: { content: JSON.stringify({
-            stocks, totalBudget: pN(document.getElementById('totalBudget').value),
-            currentInvested: pN(document.getElementById('currentInvested').value),
+            stocks, 
+            totalBudget: pN(document.getElementById('totalBudget').value),
+            planMonth: parseInt(document.getElementById('planMonth').value),
             memo: document.getElementById('memoArea').value
         }) } } };
         try {
             const res = await fetch(`https://api.github.com/gists/${id}`, {
-                method: 'PATCH', headers: {'Authorization': `token ${t}`, 'Content-Type': 'application/json'},
+                method: 'PATCH', 
+                headers: {'Authorization': `token ${t}`, 'Content-Type': 'application/json'},
                 body: JSON.stringify(payload)
             });
-            if(res.ok) alert("✅ Gist에 안전하게 저장되었습니다.");
-        } catch(e) { alert("❌ 저장 실패"); }
+            if(res.ok) {
+                alert("✅ Gist에 안전하게 저장되었습니다.");
+            } else {
+                alert("❌ 저장 실패: 응답 상태코드를 확인하세요.");
+            }
+        } catch(e) { 
+            alert("❌ Gist 저장 중 오류 발생"); 
+        }
     }
 
-    // 핵심 계산 로직
-   function calculate() {
+    // 핵심 연산 및 포커스 유지 렌더링 로직
+    function calculate() {
+        // 1. 포커스 상태(ID 및 커서 위치) 백업
+        const activeId = document.activeElement ? document.activeElement.id : null;
+        let cursorStart = null;
+        let cursorEnd = null;
+        if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) {
+            try {
+                cursorStart = document.activeElement.selectionStart;
+                cursorEnd = document.activeElement.selectionEnd;
+            } catch (e) {}
+        }
+
+        // 2. 상단 값 계산 및 설정
         const budget = pN(document.getElementById('totalBudget').value);
-        const invested = pN(document.getElementById('currentInvested').value);
-        const now = new Date();
-        const m = now.getMonth() + 1, remM = 12 - m;
-    
-        document.getElementById('resMonth').innerText = `${m}월 / ${remM}개월`;
-        const rem = budget - invested;
-        document.getElementById('resRem').innerText = fN(rem);
-        const monAvail = remM > 0 ? rem / remM : rem;
-        document.getElementById('resMonAvail').innerText = fN(monAvail);
-    
-        let totalEval = stocks.reduce((a, s) => a + (pN(s.curr) * pN(s.qty)), 0);
-        let totalBuySum = stocks.reduce((a, s) => a + pN(s.buy), 0);
-        let totalSugSum = 0;
-    
-        // ── Step 1: 매수 후 총액 산출 ──
+        
+        // 3. 기투자 금액 = 매입액 합계 (totalBuySum)
+        const totalBuySum = stocks.reduce((a, s) => a + pN(s.buy), 0);
+        document.getElementById('currentInvested').value = fN(totalBuySum);
+
+        // 4. 년간 잔여 투자금
+        const annualRemaining = budget - totalBuySum;
+        document.getElementById('resRem').innerText = fN(annualRemaining);
+
+        // 5. 누적 투자금 분배 계산 (월별 분배 & 이월 로직)
+        const m = parseInt(document.getElementById('planMonth').value) || (new Date().getMonth() + 1);
+        const accumBudget = (budget / 12) * m;
+        document.getElementById('accumBudget').innerText = fN(accumBudget);
+
+        // 6. 당월 잔여 투자금 (이월 포함) = 누적 가용 투자금 - 기투자 금액
+        const thisMonthAvailable = accumBudget - totalBuySum;
+        document.getElementById('resMonAvail').innerText = fN(thisMonthAvailable);
+
+        // 음수 투자 방지 (초과 투자된 경우 당월 가용 투자금은 0으로 한정)
+        const monAvail = Math.max(0, thisMonthAvailable);
+
+        // 7. 자산 재배분 1차 루프 - 이상적 매수 금액 도출
+        const totalEval = stocks.reduce((a, s) => a + (pN(s.curr) * pN(s.qty)), 0);
         const afterTotal = totalEval + monAvail;
-    
-        // ── Step 2~3: 1차 루프 - 이상적 매수액 산출 ──
+        
         let idealBuys = [];
         let positiveSum = 0;
-    
+
         stocks.forEach((s, i) => {
             const ev = pN(s.curr) * pN(s.qty);
             const targetAmount = afterTotal * (pN(s.target) / 100);
             const idealBuy = targetAmount - ev;
-    
+
             idealBuys.push({
-                index: i,
                 ev: ev,
                 idealBuy: idealBuy
             });
-    
+
             if (idealBuy > 0) {
                 positiveSum += idealBuy;
             }
         });
-    
-        // ── Step 4~5: 2차 루프 - 비례 배분 & 렌더링 ──
+
+        // 8. 렌더링 컨테이너 초기화
         const pcBody = document.getElementById('pcBody');
         const pcFoot = document.getElementById('pcFoot');
         const mobBody = document.getElementById('mobileBody');
+        
         pcBody.innerHTML = '';
         pcFoot.innerHTML = '';
         mobBody.innerHTML = '';
-    
+
+        let totalSugSum = 0;
+
+        // 9. 종목 렌더링 및 추가매수 비례 배분
         stocks.forEach((s, i) => {
             const ev = idealBuys[i].ev;
             const idealBuy = idealBuys[i].idealBuy;
             const pRate = s.buy > 0 ? ((ev - s.buy) / s.buy * 100).toFixed(2) : 0;
             const weight = totalEval > 0 ? (ev / totalEval * 100).toFixed(1) : 0;
-    
-            // ── 핵심: 비례 배분 계산 ──
+
+            // 추가매수 비례 배분 공식
             let buySug = 0;
             if (idealBuy > 0 && positiveSum > 0) {
                 buySug = (idealBuy / positiveSum) * monAvail;
             }
-    
-            // 매수 후 비중 계산 (확인용)
-            const afterWeight = afterTotal > 0
-                ? ((ev + buySug) / afterTotal * 100).toFixed(1)
-                : 0;
-    
+
             const pClass = pRate < 0 ? 'loss' : 'gain';
             totalSugSum += buySug;
-    
-            // Desktop Table Rendering
+
+            // 데스크톱 테이블 렌더링
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><input type="text" value="${s.code}" class="input-center" onchange="upd(${i},'code',this.value)"></td>
-                <td><input type="text" value="${s.name}" class="input-left" onchange="upd(${i},'name',this.value)"></td>
-                <td><input type="text" value="${fN(s.buy)}" class="input-right" onchange="updF(${i},'buy',this)"></td>
-                <td><input type="text" value="${fN(s.qty)}" class="input-right" oninput="updF(${i},'qty',this)"></td>
-                <td><input type="text" value="${fN(s.curr)}" class="input-right" oninput="updF(${i},'curr',this)"></td>
-                <td style="text-align: right"><b>${fN(ev)}</b></td>
-                <td style="text-align: right" class="${pClass}">${pRate}%</td>
-                <td>${weight}%</td>
-                <td><input type="text" value="${s.target}" class="input-center" onchange="upd(${i},'target',pN(this.value))"></td>
-                <td style="text-align: right; color:#2563eb; font-weight:bold">${fN(Math.round(buySug))}</td>
-                <td><button class="btn" style="padding:2px 5px; color:red;" onclick="del(${i})">×</button></td>`;
+                <td><input type="text" id="stock-code-${i}" value="${s.code}" class="input-center" onchange="upd(${i},'code',this.value)"></td>
+                <td><input type="text" id="stock-name-${i}" value="${s.name}" class="input-left" onchange="upd(${i},'name',this.value)"></td>
+                <td><input type="text" id="stock-buy-${i}" value="${fN(s.buy)}" class="input-right" onchange="updF(${i},'buy',this)"></td>
+                <td><input type="text" id="stock-qty-${i}" value="${fN(s.qty)}" class="input-right" onchange="updF(${i},'qty',this)"></td>
+                <td><input type="text" id="stock-curr-${i}" value="${fN(s.curr)}" class="input-right" onchange="updF(${i},'curr',this)"></td>
+                <td style="text-align: right; font-weight: 500;">${fN(ev)}</td>
+                <td style="text-align: right;" class="${pClass}">${pRate > 0 ? '+' : ''}${pRate}%</td>
+                <td style="text-align: right; font-weight: 500; color: #475569;">${weight}%</td>
+                <td><input type="text" id="stock-target-${i}" value="${s.target}" class="input-center" onchange="upd(${i},'target',pN(this.value))"></td>
+                <td style="text-align: right; color:#4f46e5; font-weight:700">${fN(Math.round(buySug))}</td>
+                <td>
+                    <button class="btn-delete" onclick="del(${i})" title="삭제">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                    </button>
+                </td>`;
             pcBody.appendChild(tr);
+
+            // 모바일 반응형 카드 렌더링
+            const card = document.createElement('div');
+            card.className = 'stock-card';
+            card.innerHTML = `
+                <div class="card-row" style="align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; margin-bottom: 10px;">
+                    <span style="font-weight:700; font-size:14px; color:#1e293b;">📌 종목 #${i+1}</span>
+                    <button class="btn-delete" onclick="del(${i})" title="삭제">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    </button>
+                </div>
+                <div class="mobile-grid">
+                    <div>
+                        <span class="label">코드</span>
+                        <input type="text" id="mob-stock-code-${i}" value="${s.code}" class="input-center" onchange="upd(${i},'code',this.value)">
+                    </div>
+                    <div>
+                        <span class="label">종목명</span>
+                        <input type="text" id="mob-stock-name-${i}" value="${s.name}" class="input-left" onchange="upd(${i},'name',this.value)">
+                    </div>
+                    <div>
+                        <span class="label">매입액</span>
+                        <input type="text" id="mob-stock-buy-${i}" value="${fN(s.buy)}" class="input-right" onchange="updF(${i},'buy',this)">
+                    </div>
+                    <div>
+                        <span class="label">수량</span>
+                        <input type="text" id="mob-stock-qty-${i}" value="${fN(s.qty)}" class="input-right" onchange="updF(${i},'qty',this)">
+                    </div>
+                    <div>
+                        <span class="label">현재가</span>
+                        <input type="text" id="mob-stock-curr-${i}" value="${fN(s.curr)}" class="input-right" onchange="updF(${i},'curr',this)">
+                    </div>
+                    <div>
+                        <span class="label">목표%</span>
+                        <input type="text" id="mob-stock-target-${i}" value="${s.target}" class="input-center" onchange="upd(${i},'target',pN(this.value))">
+                    </div>
+                </div>
+                <div class="card-row" style="margin-top: 12px; padding-top: 8px; border-top: 1px dashed #f1f5f9;">
+                    <span class="label" style="font-size:11px; color:#64748b;">평가액</span>
+                    <span style="font-weight: 600; color: #0f172a;">${fN(ev)}원</span>
+                </div>
+                <div class="card-row">
+                    <span class="label" style="font-size:11px; color:#64748b;">손익률 / 비중</span>
+                    <span><span class="${pClass}">${pRate > 0 ? '+' : ''}${pRate}%</span> / <b style="color: #475569;">${weight}%</b></span>
+                </div>
+                <div class="card-row" style="border-bottom:none; padding-bottom:0; margin-bottom:0; font-weight:bold; font-size:13px; align-items:center;">
+                    <span class="label" style="color:#4f46e5; font-weight:700; margin-bottom:0;">추가매수 추천</span>
+                    <span style="color:#4f46e5; font-size:14px; font-weight: 700;">${fN(Math.round(buySug))}원</span>
+                </div>
+            `;
+            mobBody.appendChild(card);
         });
-       
-        // 토탈 수익율 계산  
+        
+        // 10. 합계 행 계산 및 렌더링
         const totalRate = totalBuySum > 0 ? ((totalEval - totalBuySum) / totalBuySum * 100).toFixed(2) : 0;
         const totalClass = totalRate < 0 ? 'loss' : 'gain';
-    
-        // 전체 합계 행 렌더링
+        
+        // PC 합계 행 렌더링
         const ft = document.createElement('tr');
         ft.innerHTML = `
-            <td colspan="2">전체 합계</td>
-            <td style="text-align: right">${fN(totalBuySum)}</td>
+            <td colspan="2" style="font-weight: 600; color: #475569;">포트폴리오 합계</td>
+            <td style="text-align: right; font-weight: 600;">${fN(totalBuySum)}</td>
             <td>-</td>
             <td>-</td>
-            <td style="text-align: right">${fN(totalEval)}</td>
-            <td style="text-align: right" class="${totalClass}">${totalRate}%</td>
-            <td></td>
-            <td></td> 
-            <td style="text-align: right; color:#2563eb;">${fN(Math.round(totalSugSum))}</td>
+            <td style="text-align: right; font-weight: 600;">${fN(totalEval)}</td>
+            <td style="text-align: right; font-weight: 600;" class="${totalClass}">${totalRate > 0 ? '+' : ''}${totalRate}%</td>
+            <td>-</td>
+            <td>-</td> 
+            <td style="text-align: right; color:#4f46e5; font-weight:700">${fN(Math.round(totalSugSum))}</td>
             <td></td>
         `;
         pcFoot.appendChild(ft);
-    }
-    // 화면의 입력값들을 stocks 배열에 동기화하고 계산을 수행하는 함수
-    function uiCalculate() {
-        // 1. 상단 요약 바 값 동기화
-        const budgetValue = pN(document.getElementById('totalBudget').value);
-        const investedValue = pN(document.getElementById('currentInvested').value);
         
-        // 2. 테이블 내 입력값들을 stocks 배열에 업데이트
-        const rows = document.querySelectorAll('#pcBody tr');
-        rows.forEach((row, i) => {
-            if (!stocks[i]) return;
-            const inputs = row.querySelectorAll('input');
-            if (inputs.length >= 6) {
-                stocks[i].code = inputs[0].value;
-                stocks[i].name = inputs[1].value;
-                stocks[i].buy = pN(inputs[2].value);
-                stocks[i].qty = pN(inputs[3].value);
-                stocks[i].curr = pN(inputs[4].value);
-                stocks[i].target = pN(inputs[5].value);
+        // 모바일 합계 카드 렌더링
+        const mobSummary = document.createElement('div');
+        mobSummary.className = 'stock-card';
+        mobSummary.style.border = '2px solid #cbd5e1';
+        mobSummary.style.background = '#f8fafc';
+        mobSummary.style.boxShadow = 'none';
+        mobSummary.innerHTML = `
+            <div class="card-row" style="border-bottom: 1px solid #cbd5e1; padding-bottom: 6px; margin-bottom: 10px; font-weight:bold; font-size:12px; color: #475569;">
+                <span>📊 포트폴리오 합계</span>
+            </div>
+            <div class="card-row">
+                <span class="label" style="font-size:11px; color:#64748b;">총 매입액</span>
+                <span style="font-weight:600; color:#1e293b;">${fN(totalBuySum)}원</span>
+            </div>
+            <div class="card-row">
+                <span class="label" style="font-size:11px; color:#64748b;">총 평가액</span>
+                <span style="font-weight:600; color:#1e293b;">${fN(totalEval)}원</span>
+            </div>
+            <div class="card-row">
+                <span class="label" style="font-size:11px; color:#64748b;">총 손익률</span>
+                <span class="${totalClass}"><b>${totalRate > 0 ? '+' : ''}${totalRate}%</b></span>
+            </div>
+            <div class="card-row" style="border-bottom:none; padding-bottom:0; margin-bottom:0; font-weight:bold; font-size:13px; align-items:center;">
+                <span class="label" style="color:#4f46e5; font-weight:bold; margin-bottom:0;">총 추가매수액</span>
+                <span style="color:#4f46e5; font-size:14px; font-weight:700;">${fN(Math.round(totalSugSum))}원</span>
+            </div>
+        `;
+        mobBody.appendChild(mobSummary);
+
+        // 11. 로컬 데이터 실시간 세이브 백업
+        saveToLocal();
+
+        // 12. 포커스 복원 메커니즘
+        if (activeId) {
+            const el = document.getElementById(activeId);
+            if (el) {
+                el.focus();
+                if (cursorStart !== null && cursorEnd !== null && (el.type === 'text' || el.type === 'password' || el.type === 'tel' || el.type === 'url')) {
+                    try {
+                        el.setSelectionRange(cursorStart, cursorEnd);
+                    } catch (e) {}
+                }
             }
-        });
-    
-        // 3. 핵심 연산 로직 호출
-        calculate();
-        console.log("계산 완료");
+        }
     }
     
-    function upd(i, k, v) { stocks[i][k] = v; calculate(); }
-    function updF(i, k, el) { let v = pN(el.value); el.value = fN(v); stocks[i][k] = v; }
-    function addStock() { stocks.push({code:'', name:'', buy:0, qty:0, curr:0, target:0}); calculate(); }
-    function del(i) { if(confirm("삭제하시겠습니까?")) { stocks.splice(i, 1); calculate(); } }
+    // 데이터 변경 동기화 및 연산
+    function upd(i, k, v) { 
+        stocks[i][k] = v; 
+        calculate(); 
+    }
+    
+    function updF(i, k, el) { 
+        let v = pN(el.value); 
+        el.value = fN(v); 
+        stocks[i][k] = v; 
+        calculate(); 
+    }
+    
+    function addStock() { 
+        stocks.push({code:'', name:'', buy:0, qty:0, curr:0, target:0}); 
+        calculate(); 
+    }
+    
+    function del(i) { 
+        if(confirm("해당 종목을 삭제하시겠습니까?")) { 
+            stocks.splice(i, 1); 
+            calculate(); 
+        } 
+    }
 
     window.onload = () => {
         document.getElementById('ghToken').value = localStorage.getItem('ghToken') || "";
         document.getElementById('gistId').value = localStorage.getItem('gistId') || "";
+        
+        // 1. 로컬 스토리지 데이터 먼저 로드
+        const loadedFromLocal = loadFromLocal();
+        
+        // 2. 만약 데이터가 전혀 없는 빈 상태인 경우 기본 행 하나 추가 및 디폴트 값 설정
+        if (!loadedFromLocal && stocks.length === 0) {
+            document.getElementById('totalBudget').value = fN(20000000);
+            document.getElementById('planMonth').value = new Date().getMonth() + 1;
+            stocks.push({code:'005930', name:'삼성전자', buy:5000000, qty:70, curr:72000, target:50});
+            stocks.push({code:'000660', name:'SK하이닉스', buy:3000000, qty:18, curr:165000, target:50});
+            calculate();
+        }
+
+        // 3. Gist 연동 설정이 되어 있다면 Gist 최신본 로드
         loadFromGist();
     };
 </script>
