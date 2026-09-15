@@ -949,11 +949,6 @@
         let done = 0;
         const failedIdx = []; // {s, i, raw} — 재시도 웨이브용
         const viaCount = {};  // 프록시별 성공 집계 (진단용)
-        const setProgress = () => {
-            label.textContent = `갱신중 ${done}/${targets.length}`;
-            status.textContent = `⏳ 시세 갱신중... ${done}/${targets.length}`;
-        };
-        setProgress();
         markLoadingRows(true);
 
         // 프록시 체인: 전용 Worker(설정 시) → 공용 프록시. 전부 동시에 레이스.
@@ -984,27 +979,31 @@
             }
         }
 
-        // 1차: 종목별 150ms 간격으로 시작 (버스트 → 429 완화)
-        await Promise.allSettled(targets.map((t, k) => (async () => {
-            await sleep(k * 150);
-            await fetchOne(t);
-            done++;
-            setProgress();
-        })()));
-
-        // 2차: 실패분만 2초 대기 후 재시도 (레이트리밋 해소 노림)
-        if (failedIdx.length > 0) {
-            status.textContent = `🔁 ${failedIdx.length}건 재시도 중... (잠시만요)`;
-            label.textContent = `재시도 중`;
-            await sleep(2000);
-            const again = failedIdx.splice(0);
-            for (const t of again) {
+        // 1차: 종목별 500ms 간격으로 시작 (버스트 → 429 완화)
+        let passTotal = 0, passDone = 0, passName = '갱신중';
+        const paintProgress = () => {
+            label.textContent = `${passName} ${passDone}/${passTotal}`;
+            status.textContent = `⏳ 시세 ${passName}... ${passDone}/${passTotal}`;
+        };
+        async function runPass(list) {
+            passTotal = list.length; passDone = 0;
+            paintProgress();
+            await Promise.allSettled(list.map((t, k) => (async () => {
+                await sleep(k * 500);
                 await fetchOne(t);
                 done++;
-                label.textContent = `재시도 ${done - targets.length}/${again.length}`;
-                status.textContent = `🔁 재시도 중... ${done}/${targets.length + again.length}`;
-                await sleep(400);
-            }
+                passDone++;
+                paintProgress();
+            })()));
+        }
+        await runPass(targets);
+
+        // 2차: 실패분만 3초 대기 후 병렬 재시도 (레이트리밋 해소 노림)
+        if (failedIdx.length > 0) {
+            passName = '재시도 중';
+            status.textContent = `🔁 ${failedIdx.length}건 재시도 중... (잠시만요)`;
+            await sleep(3000);
+            await runPass(failedIdx.splice(0));
         }
 
         markLoadingRows(false);
@@ -1054,6 +1053,7 @@
         }
         list.push(
             { name: 'allorigins', build: (url) => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, wrapped: true },
+            { name: 'allorigins-raw', build: (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`, wrapped: false },
             { name: 'codetabs', build: (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, wrapped: false },
             { name: 'corslol', build: (url) => `https://api.cors.lol/?url=${encodeURIComponent(url)}`, wrapped: false }
         );
@@ -1089,26 +1089,32 @@
         return p.wrapped ? JSON.parse(JSON.parse(text).contents) : JSON.parse(text);
     }
 
-    // 2단계 조회: 1순위 1곳만 먼저(트래픽 1/3로 429 완화) → 실패 시 나머지 레이스
+    // 순차 투입 + 선착순 채택: 프록시를 500ms 간격으로 투입해 버스트를 피하고,
+    // 가장 먼저 가격을 가져온 프록시가 이김. 전체 상한 11초로 느린 케이스 마감.
     async function queryYahoo(fCode, proxies) {
         const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(fCode)}?interval=1d&range=1d`;
-        const run = (ps, ms) => Promise.allSettled(
-            ps.map(p => (async () => ({ name: p.name, out: extractPrice(await tryProxy(p, targetUrl, ms)) }))())
-        );
-        const pick = (results) => results.find(r => r.status === 'fulfilled' && r.value.out.price !== undefined);
-        const first = await run(proxies.slice(0, 1), 4000);
-        let hit = pick(first);
-        let all = [...first];
-        if (!hit && proxies.length > 1) {
-            const second = await run(proxies.slice(1), 5000);
-            all = all.concat(second);
-            hit = pick(second);
+        let finished = false;
+        const wins = [];
+        let sawNotFound = false;
+        const jobs = proxies.map((p, k) => (async () => {
+            await sleep(k * 500);
+            if (finished) return;
+            try {
+                const out = extractPrice(await tryProxy(p, targetUrl, 9000));
+                if (finished) return;
+                if (out.price !== undefined) {
+                    finished = true;
+                    wins.push({ name: p.name, price: out.price });
+                } else if (out.notFound) {
+                    sawNotFound = true;
+                }
+            } catch (e) {}
+        })());
+        await Promise.race([Promise.allSettled(jobs), sleep(11000).then(() => { finished = true; })]);
+        if (wins.length > 0) {
+            bumpProxyScore(wins[0].name);
+            return { price: wins[0].price, via: wins[0].name };
         }
-        if (hit) {
-            bumpProxyScore(hit.value.name);
-            return { price: hit.value.out.price, via: hit.value.name };
-        }
-        const sawNotFound = all.some(r => r.status === 'fulfilled' && r.value.out.notFound);
         return sawNotFound ? { notFound: true } : {};
     }
 
