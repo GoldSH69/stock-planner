@@ -1088,17 +1088,19 @@
             }
         }
         plog(`=== 갱신 시작 (${targets.length}건) ===`);
-        await runPass(targets, 1);
-
-        // 2차: 1차에서 과부하로 중단된 게 아니라면 실패분만 3초 대기 후 재시도
-        if (failedIdx.length > 0 && !overloaded) {
-            passName = '재시도 중';
-            status.textContent = `🔁 ${failedIdx.length}건 재시도 중... (잠시만요)`;
-            plog(`=== 2차 재시도 (${failedIdx.length}건) ===`);
-            await sleep(3000);
-            await runPass(failedIdx.splice(0), 2);
-        } else if (overloaded) {
-            plog('과부하 중단 상태라 2차 재시도를 생략합니다.');
+        // 최대 3웨이브: 실패분은 3초 대기 후 재시도 (과부하 중단 시 조기 종료)
+        for (let wave = 1; wave <= 3; wave++) {
+            if (wave > 1) {
+                if (failedIdx.length === 0 || overloaded) break;
+                passName = '재시도 중';
+                status.textContent = `🔁 ${failedIdx.length}건 재시도 중... (잠시만요)`;
+                plog(`=== ${wave}차 재시도 (${failedIdx.length}건) ===`);
+                await sleep(3000);
+            }
+            await runPass(wave === 1 ? targets : failedIdx.splice(0), wave);
+        }
+        if (overloaded) {
+            plog('과부하 중단 상태라 추가 재시도를 생략합니다.');
         }
 
         markLoadingRows(false);
@@ -1148,8 +1150,8 @@
             list.push({ name: 'custom', timeout: 8000, build: (url) => `${custom}?url=${encodeURIComponent(url)}`, wrapped: false });
         }
         list.push(
-            { name: 'allorigins', timeout: 30000, build: (url) => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, wrapped: true },
-            { name: 'allorigins-raw', timeout: 40000, build: (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`, wrapped: false },
+            { name: 'allorigins', timeout: 22000, build: (url) => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, wrapped: true },
+            { name: 'allorigins-raw', timeout: 22000, build: (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`, wrapped: false },
             { name: 'codetabs', timeout: 8000, build: (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, wrapped: false },
             { name: 'corslol', timeout: 6000, build: (url) => `https://api.cors.lol/?url=${encodeURIComponent(url)}`, wrapped: false }
         );
