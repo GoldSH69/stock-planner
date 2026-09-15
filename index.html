@@ -987,7 +987,7 @@
 
     function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-    // Yahoo Finance 실시간 시세 갱신 (수동, 병렬)
+    // Yahoo Finance 실시간 시세 갱신 (수동, 기존방식: 순차 + 끈기 있게 대기)
     let _fetching = false;
     async function fetchPrices() {
         if (_fetching) return;
@@ -1008,9 +1008,9 @@
         const viaCount = {};  // 프록시별 성공 집계 (진단용)
         markLoadingRows(true);
 
-        // 프록시 체인: 전용 Worker(설정 시) → 공용 프록시. 전부 동시에 레이스.
-        // ※ corsproxy.io는 키 요구(401)로 제외. 공용은 언제든 막힐 수 있어
-        //    repo의 worker.js 배포 + 설정 등록을 권장.
+        // 프록시 체인: 전용 Worker(설정 시) → 공용 프록시. 한 번에 하나씩 순차 호출.
+        // ※ allorigins는 20초+ 걸려도 성공하므로 타임아웃을 넉넉히 (기존 로직 방식).
+        //    corsproxy.io는 키 요구(401)로 제외.
         const proxies = getProxies();
 
         // 종목 1건 조회 (성공 시 via 집계, 실패 시 재시도 큐에 등록)
@@ -1074,10 +1074,10 @@
                 passDone++;
                 paintProgress();
                 if (st === 'error') {
-                    if (++consecErr >= 3) {
+                    if (++consecErr >= 2) {
                         overloaded = true;
                         const left = list.length - passDone;
-                        plog(`⚠️ 프록시 과부하 감지(연속 3건 전송실패) → 나머지 ${left}건 중단`);
+                        plog(`⚠️ 프록시 과부하 감지(연속 2건 전송실패) → 나머지 ${left}건 중단`);
                         for (const rest of list.slice(passDone)) {
                             failedIdx.push({ s: rest.s, i: rest.i, raw: String(rest.s.code).toUpperCase().trim() });
                         }
@@ -1148,10 +1148,10 @@
             list.push({ name: 'custom', timeout: 8000, build: (url) => `${custom}?url=${encodeURIComponent(url)}`, wrapped: false });
         }
         list.push(
-            { name: 'allorigins', timeout: 12000, build: (url) => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, wrapped: true },
-            { name: 'allorigins-raw', timeout: 15000, build: (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`, wrapped: false },
-            { name: 'codetabs', timeout: 7000, build: (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, wrapped: false },
-            { name: 'corslol', timeout: 5000, build: (url) => `https://api.cors.lol/?url=${encodeURIComponent(url)}`, wrapped: false }
+            { name: 'allorigins', timeout: 30000, build: (url) => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, wrapped: true },
+            { name: 'allorigins-raw', timeout: 40000, build: (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`, wrapped: false },
+            { name: 'codetabs', timeout: 8000, build: (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, wrapped: false },
+            { name: 'corslol', timeout: 6000, build: (url) => `https://api.cors.lol/?url=${encodeURIComponent(url)}`, wrapped: false }
         );
         const scores = getProxyScores();
         const head = (list[0] && list[0].name === 'custom') ? [list[0]] : [];
