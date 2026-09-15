@@ -566,9 +566,10 @@
         tfoot tr { background: rgba(255, 255, 255, .5) !important; border-top: 1px solid #EDE9F4 !important; }
         tfoot td { color: #2A2431 !important; font-variant-numeric: tabular-nums; }
 
-        /* 손익 뱃지 */
-        .loss { color: #DC2626 !important; background: rgba(239, 68, 68, .13) !important; border-radius: 99px !important; padding: 3px 10px !important; }
-        .gain { color: #059669 !important; background: rgba(16, 185, 129, .15) !important; border-radius: 99px !important; padding: 3px 10px !important; }
+        /* 손익 뱃지 (td 안 span용 — td 자체에는 적용 금지) */
+        .desktop-table th, .desktop-table td { vertical-align: middle !important; }
+        .loss { color: #DC2626 !important; background: rgba(239, 68, 68, .13) !important; border-radius: 99px !important; padding: 2px 8px !important; font-size: 11.5px !important; line-height: 1.5 !important; white-space: nowrap !important; }
+        .gain { color: #059669 !important; background: rgba(16, 185, 129, .15) !important; border-radius: 99px !important; padding: 2px 8px !important; font-size: 11.5px !important; line-height: 1.5 !important; white-space: nowrap !important; }
         tr.price-failed input[id*="stock-curr-"] {
             border-color: rgba(220, 38, 38, .4) !important;
             background: rgba(239, 68, 68, .13) !important;
@@ -742,10 +743,10 @@
                     <col style="width: 80px;">   <!-- 수량 -->
                     <col style="width: 110px;">  <!-- 현재가 -->
                     <col style="width: 120px;">  <!-- 평가액 -->
-                    <col style="width: 85px;">   <!-- 손익% -->
+                    <col style="width: 94px;">   <!-- 손익% -->
                     <col style="width: 75px;">   <!-- 비중 -->
                     <col style="width: 80px;">   <!-- 목표% -->
-                    <col style="width: 120px;">  <!-- 추가매수 추천 -->
+                    <col style="width: 111px;">  <!-- 추가매수 추천 -->
                     <col style="width: 45px;">   <!-- 삭제버튼 -->
                 </colgroup>
                 <thead>
@@ -1168,7 +1169,7 @@
                 <td><input type="text" id="stock-qty-${i}" value="${fN(s.qty)}" class="input-right" inputmode="decimal" onchange="updF(${i},'qty',this)"></td>
                 <td><input type="text" id="stock-curr-${i}" value="${fN(s.curr)}" class="input-right" inputmode="decimal" onchange="updF(${i},'curr',this)"></td>
                 <td style="text-align: right; font-weight: 500;">${fN(ev)}</td>
-                <td style="text-align: right;" class="${pClass}">${pRate > 0 ? '+' : ''}${pRate}%</td>
+                <td style="text-align: right;"><span class="${pClass}">${pRate > 0 ? '+' : ''}${pRate}%</span></td>
                 <td style="text-align: right; font-weight: 500; color: #475569;">${weight}%</td>
                 <td><input type="text" id="stock-target-${i}" value="${s.target}" class="input-center" onchange="upd(${i},'target',pN(this.value))"></td>
                 <td style="text-align: right; color:#4f46e5; font-weight:700">${fN(Math.round(buySug))}</td>
@@ -1243,7 +1244,7 @@
             <td>-</td>
             <td>-</td>
             <td style="text-align: right; font-weight: 600;">${fN(totalEval)}</td>
-            <td style="text-align: right; font-weight: 600;" class="${totalClass}">${totalRate > 0 ? '+' : ''}${totalRate}%</td>
+            <td style="text-align: right; font-weight: 600;"><span class="${totalClass}">${totalRate > 0 ? '+' : ''}${totalRate}%</span></td>
             <td>-</td>
             <td>-</td> 
             <td style="text-align: right; color:#4f46e5; font-weight:700">${fN(Math.round(totalSugSum))}</td>
