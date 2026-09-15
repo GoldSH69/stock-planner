@@ -1014,6 +1014,7 @@
         const proxies = getProxies();
 
         // 종목 1건 조회 (성공 시 via 집계, 실패 시 재시도 큐에 등록)
+        // 반환: 'ok' | 'notfound'(심볼오류) | 'error'(전송실패)
         async function fetchOne(t, wave) {
             const { s, i } = t;
             // 한국 시장: 접미사 없으면 .KS 먼저. Yahoo가 "Not Found"로 확답할 때만 .KQ 시도
@@ -1022,9 +1023,10 @@
             const candidates = raw.includes('.') ? [raw] : [raw + '.KS', raw + '.KQ'];
             const tag = `[${wave}차:${raw}]`;
             plog(`${tag} 조회 시작 (후보: ${candidates.join(', ')})`);
-            let price = null, via = '';
+            let price = null, via = '', lastNotFound = false;
             for (const fCode of candidates) {
                 const r = await queryYahoo(fCode, proxies, tag);
+                lastNotFound = !!r.notFound;
                 if (r.price !== undefined) { price = r.price; via = r.via; break; }
                 if (!r.notFound) break; // 네트워크 실패면 .KQ 재시도 무의미 → 즉시 중단
             }
@@ -1033,14 +1035,20 @@
                 if (via) viaCount[via] = (viaCount[via] || 0) + 1;
                 paintPriceCell(i, price, true);
                 plog(`${tag} 최종 성공: ${price} (${via})`);
+                return 'ok';
             } else {
                 failedIdx.push({ s, i, raw });
                 paintPriceCell(i, null, false);
-                plog(`${tag} 최종 실패`);
+                plog(`${tag} 최종 실패 (${lastNotFound ? '심볼없음' : '전송실패'})`);
+                return lastNotFound ? 'notfound' : 'error';
             }
         }
 
-        // 1차: 종목별 500ms 간격으로 시작 (버스트 → 429 완화)
+        // 공용 프록시(allorigins 사실상 1곳)는 동시타격 시 줄초살 → 종목 순차 조회.
+        // 전용 프록시가 있으면 병렬 고속 경로.
+        const useSeq = !proxies.some(p => p.name === 'custom');
+        let overloaded = false;
+        if (useSeq) plog('순차 모드 (공용 프록시 보호)');
         let passTotal = 0, passDone = 0, passName = '갱신중';
         const paintProgress = () => {
             label.textContent = `${passName} ${passDone}/${passTotal}`;
@@ -1049,24 +1057,48 @@
         async function runPass(list, wave) {
             passTotal = list.length; passDone = 0;
             paintProgress();
-            await Promise.allSettled(list.map((t, k) => (async () => {
-                await sleep(k * 500);
-                await fetchOne(t, wave);
+            if (!useSeq) {
+                await Promise.allSettled(list.map((t, k) => (async () => {
+                    await sleep(k * 500);
+                    await fetchOne(t, wave);
+                    done++;
+                    passDone++;
+                    paintProgress();
+                })()));
+                return;
+            }
+            let consecErr = 0;
+            for (const t of list) {
+                const st = await fetchOne(t, wave);
                 done++;
                 passDone++;
                 paintProgress();
-            })()));
+                if (st === 'error') {
+                    if (++consecErr >= 3) {
+                        overloaded = true;
+                        const left = list.length - passDone;
+                        plog(`⚠️ 프록시 과부하 감지(연속 3건 전송실패) → 나머지 ${left}건 중단`);
+                        for (const rest of list.slice(passDone)) {
+                            failedIdx.push({ s: rest.s, i: rest.i, raw: String(rest.s.code).toUpperCase().trim() });
+                        }
+                        break;
+                    }
+                } else consecErr = 0;
+                await sleep(300);
+            }
         }
         plog(`=== 갱신 시작 (${targets.length}건) ===`);
         await runPass(targets, 1);
 
-        // 2차: 실패분만 3초 대기 후 병렬 재시도 (레이트리밋 해소 노림)
-        if (failedIdx.length > 0) {
+        // 2차: 1차에서 과부하로 중단된 게 아니라면 실패분만 3초 대기 후 재시도
+        if (failedIdx.length > 0 && !overloaded) {
             passName = '재시도 중';
             status.textContent = `🔁 ${failedIdx.length}건 재시도 중... (잠시만요)`;
             plog(`=== 2차 재시도 (${failedIdx.length}건) ===`);
             await sleep(3000);
             await runPass(failedIdx.splice(0), 2);
+        } else if (overloaded) {
+            plog('과부하 중단 상태라 2차 재시도를 생략합니다.');
         }
 
         markLoadingRows(false);
@@ -1087,9 +1119,10 @@
             toast(`시세 갱신 완료 (${targets.length}건)`, 'success');
         } else {
             const hasCustom = !!(localStorage.getItem('proxyUrl') || '').trim();
-            const hint = hasCustom
+            let hint = hasCustom
                 ? '잠시 후 다시 갱신하세요.'
                 : '공용 프록시 문제일 수 있어요. [설정]→[전용 프록시 URL] 등록(worker.js 배포)을 권장합니다.';
+            if (overloaded) hint = '현재 공용 프록시가 과부하 상태입니다. 1~2분 뒤에 다시 누르거나, [설정]→[전용 프록시 URL] 등록(worker.js 배포)을 권장합니다.';
             status.innerHTML = `⚠️ ${targets.length - failed.length}/${targets.length}건 완료` +
                 `${viaTxt ? ` (경유: ${escapeHtml(viaTxt)})` : ''}, ` +
                 `<span class="fail">실패 ${failed.length}건 (${failed.map(escapeHtml).join(', ')})</span> — ${escapeHtml(hint)}`;
@@ -1115,10 +1148,10 @@
             list.push({ name: 'custom', timeout: 8000, build: (url) => `${custom}?url=${encodeURIComponent(url)}`, wrapped: false });
         }
         list.push(
-            { name: 'allorigins', timeout: 30000, build: (url) => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, wrapped: true },
-            { name: 'allorigins-raw', timeout: 30000, build: (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`, wrapped: false },
-            { name: 'codetabs', timeout: 10000, build: (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, wrapped: false },
-            { name: 'corslol', timeout: 8000, build: (url) => `https://api.cors.lol/?url=${encodeURIComponent(url)}`, wrapped: false }
+            { name: 'allorigins', timeout: 12000, build: (url) => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, wrapped: true },
+            { name: 'allorigins-raw', timeout: 15000, build: (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`, wrapped: false },
+            { name: 'codetabs', timeout: 7000, build: (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, wrapped: false },
+            { name: 'corslol', timeout: 5000, build: (url) => `https://api.cors.lol/?url=${encodeURIComponent(url)}`, wrapped: false }
         );
         const scores = getProxyScores();
         const head = (list[0] && list[0].name === 'custom') ? [list[0]] : [];
@@ -1163,42 +1196,31 @@
         } catch (e) { throw new Error('parse-error'); }
     }
 
-    // 순차 투입 + 선착순 채택: 프록시를 500ms 간격으로 투입해 버스트를 피하고,
-    // 가장 먼저 가격을 가져온 프록시가 이김. 전체 상한 30초 (allorigins 실측 25초 성공 사례 반영).
+    // 순차 조회: 프록시를 한 번에 하나씩만 호출 (allorigins 과부하 방지).
+    // 호출 측(runPass)이 종목을 순차 처리하므로 여기서의 동시 요청은 최대 1건.
     async function queryYahoo(fCode, proxies, tag) {
         const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(fCode)}?interval=1d&range=1d`;
-        let finished = false;
-        const wins = [];
         let sawNotFound = false;
-        const jobs = proxies.map((p, k) => (async () => {
-            await sleep(k * 500);
-            if (finished) return;
+        for (const p of proxies) {
             const t0 = performance.now();
             const sec = () => ((performance.now() - t0) / 1000).toFixed(1) + 's';
             try {
                 const out = extractPrice(await tryProxy(p, targetUrl));
-                if (finished) { plog(`${tag} ${fCode} via ${p.name} → 늦은 응답(무시, ${sec()})`); return; }
                 if (out.price !== undefined) {
-                    finished = true;
-                    wins.push({ name: p.name, price: out.price });
+                    bumpProxyScore(p.name);
                     plog(`${tag} ${fCode} via ${p.name} → 200, price=${out.price} (${sec()}) ✅`);
-                } else if (out.notFound) {
+                    return { price: out.price, via: p.name };
+                }
+                if (out.notFound) {
                     sawNotFound = true;
                     plog(`${tag} ${fCode} via ${p.name} → Yahoo Not Found (${sec()})`);
-                } else {
-                    plog(`${tag} ${fCode} via ${p.name} → 응답있으나 가격없음 (${sec()})`);
+                    break; // 심볼 자체가 없음 → 다른 프록시도 동일
                 }
+                plog(`${tag} ${fCode} via ${p.name} → 응답있으나 가격없음 (${sec()})`);
             } catch (e) {
-                if (finished) return;
                 plog(`${tag} ${fCode} via ${p.name} → ${e.message} (${sec()}) ❌`);
             }
-        })());
-        await Promise.race([Promise.allSettled(jobs), sleep(30000).then(() => { finished = true; })]);
-        if (wins.length > 0) {
-            bumpProxyScore(wins[0].name);
-            return { price: wins[0].price, via: wins[0].name };
         }
-        if (!sawNotFound) plog(`${tag} ${fCode} → 전체 실패 (30s 상한)`);
         return sawNotFound ? { notFound: true } : {};
     }
 
