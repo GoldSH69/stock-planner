@@ -1035,7 +1035,17 @@
         }
     }
 
-    // 프록시 목록 (전용이 있으면 맨 먼저 시도)
+    // 프록시 목록 (전용이 있으면 맨 먼저, 나머지는 과거 성공률 순)
+    function getProxyScores() {
+        try { return JSON.parse(localStorage.getItem('proxyScore') || '{}'); } catch (e) { return {}; }
+    }
+    function bumpProxyScore(name) {
+        try {
+            const s = getProxyScores();
+            s[name] = Math.min(99, (s[name] || 0) + 1);
+            localStorage.setItem('proxyScore', JSON.stringify(s));
+        } catch (e) {}
+    }
     function getProxies() {
         const list = [];
         const custom = (localStorage.getItem('proxyUrl') || '').trim().replace(/\/+$/, '');
@@ -1047,7 +1057,11 @@
             { name: 'codetabs', build: (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`, wrapped: false },
             { name: 'corslol', build: (url) => `https://api.cors.lol/?url=${encodeURIComponent(url)}`, wrapped: false }
         );
-        return list;
+        const scores = getProxyScores();
+        const head = (list[0] && list[0].name === 'custom') ? [list[0]] : [];
+        const rest = (head.length ? list.slice(1) : list)
+            .sort((a, b) => (scores[b.name] || 0) - (scores[a.name] || 0));
+        return head.concat(rest);
     }
 
     // Yahoo 응답에서 가격 추출. {price} | {notFound:true} | {}(판단불가)
@@ -1075,19 +1089,26 @@
         return p.wrapped ? JSON.parse(JSON.parse(text).contents) : JSON.parse(text);
     }
 
-    // 전 프록시 동시 레이스 → 첫 유효가 채택. 전체 상한 ≈ 5초
+    // 2단계 조회: 1순위 1곳만 먼저(트래픽 1/3로 429 완화) → 실패 시 나머지 레이스
     async function queryYahoo(fCode, proxies) {
         const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(fCode)}?interval=1d&range=1d`;
-        const results = await Promise.allSettled(
-            proxies.map(p => (async () => ({ name: p.name, out: extractPrice(await tryProxy(p, targetUrl, 5000)) }))())
+        const run = (ps, ms) => Promise.allSettled(
+            ps.map(p => (async () => ({ name: p.name, out: extractPrice(await tryProxy(p, targetUrl, ms)) }))())
         );
-        let sawNotFound = false;
-        for (const r of results) {
-            if (r.status === 'fulfilled') {
-                if (r.value.out.price !== undefined) return { price: r.value.out.price, via: r.value.name };
-                if (r.value.out.notFound) sawNotFound = true;
-            }
+        const pick = (results) => results.find(r => r.status === 'fulfilled' && r.value.out.price !== undefined);
+        const first = await run(proxies.slice(0, 1), 4000);
+        let hit = pick(first);
+        let all = [...first];
+        if (!hit && proxies.length > 1) {
+            const second = await run(proxies.slice(1), 5000);
+            all = all.concat(second);
+            hit = pick(second);
         }
+        if (hit) {
+            bumpProxyScore(hit.value.name);
+            return { price: hit.value.out.price, via: hit.value.name };
+        }
+        const sawNotFound = all.some(r => r.status === 'fulfilled' && r.value.out.notFound);
         return sawNotFound ? { notFound: true } : {};
     }
 
