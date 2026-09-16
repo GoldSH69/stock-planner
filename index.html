@@ -637,23 +637,6 @@
         .toast.error { background: #DC2626 !important; }
         .toast.success { background: #059669 !important; }
 
-        /* 진단 로그 */
-        #priceLog {
-            background: rgba(42, 36, 49, .92);
-            color: #D6F5E3;
-            font-family: ui-monospace, Consolas, monospace;
-            font-size: 11px;
-            line-height: 1.7;
-            border-radius: 13px;
-            padding: 12px 14px;
-            max-height: 260px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-            word-break: break-all;
-            margin: 0;
-        }
-        #logPanel summary { list-style: none; }
-
         /* 설정 모달 */
         #configModal {
             border-radius: 20px !important;
@@ -720,13 +703,6 @@
             <span id="priceStatus" role="status" aria-live="polite"></span>
             <span id="lastUpdated"></span>
         </div>
-        <details id="logPanel" style="margin:-6px 0 16px 0;">
-            <summary style="cursor:pointer; font-size:12px; font-weight:700; color:#6C5CE7;">🧾 시세 조회 로그 (<span id="logCount">0</span>)</summary>
-            <div style="display:flex; justify-content:flex-end; margin:6px 0;">
-                <button class="btn" style="padding:6px 12px !important; font-size:12px !important;" onclick="copyDiag()">진단 복사</button>
-            </div>
-            <pre id="priceLog"></pre>
-        </details>
         <div class="summary-grid">
             <div class="stat-box">
                 <span class="label">총 투자 가용금 (년)</span>
@@ -938,39 +914,6 @@
         while (wrap.children.length > 3) wrap.firstChild.remove();
     }
 
-    // 건별 진단 로그 (임시 상세 로깅)
-    const priceLogLines = [];
-    function plog(msg) {
-        const t = new Date();
-        const ts = t.toTimeString().slice(0, 8) + '.' + String(t.getMilliseconds()).padStart(3, '0');
-        const line = `[${ts}] ${msg}`;
-        priceLogLines.push(line);
-        if (priceLogLines.length > 300) priceLogLines.splice(0, priceLogLines.length - 300);
-        const pre = document.getElementById('priceLog');
-        if (pre) {
-            pre.textContent += line + '\n';
-            pre.scrollTop = pre.scrollHeight;
-        }
-        const cnt = document.getElementById('logCount');
-        if (cnt) cnt.textContent = String(priceLogLines.length);
-    }
-    function copyDiag() {
-        const head = `Stock-Planner 진단 ${new Date().toLocaleString('ko-KR', { hour12: false })}\nUA: ${navigator.userAgent}\nproxyScore: ${localStorage.getItem('proxyScore') || '{}'}\n---\n`;
-        const text = head + priceLogLines.join('\n');
-        const ok = () => toast('진단 로그가 복사되었습니다.', 'success');
-        const fallback = () => {
-            const ta = document.createElement('textarea');
-            ta.value = text;
-            document.body.appendChild(ta);
-            ta.select();
-            try { document.execCommand('copy'); ok(); } catch (e) { toast('복사 실패', 'error'); }
-            ta.remove();
-        };
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(text).then(ok, fallback);
-        } else fallback();
-    }
-
     // HTML 이스케이프 (종목명/코드 innerHTML 삽입 시 XSS 방지)
     function escapeHtml(s) {
         return String(s === undefined || s === null ? '' : s)
@@ -1034,7 +977,6 @@
             const raw = String(s.code).toUpperCase().trim();
             const candidates = raw.includes('.') ? [raw] : [raw + '.KS', raw + '.KQ'];
             const tag = `[${wave}차:${raw}]`;
-            plog(`${tag} 조회 시작 (후보: ${candidates.join(', ')})`);
             let price = null, prevClose = null, chgPct = null, via = '', lastNotFound = false;
             for (const fCode of candidates) {
                 const r = await queryYahoo(fCode, proxies, tag);
@@ -1047,12 +989,10 @@
                 if (prevClose !== null) s.prevClose = prevClose;
                 if (via) viaCount[via] = (viaCount[via] || 0) + 1;
                 paintPriceCell(i, price, true, prevClose);
-                plog(`${tag} 최종 성공: ${price} (${via})`);
                 return 'ok';
             } else {
                 failedIdx.push({ s, i, raw });
                 paintPriceCell(i, null, false, null);
-                plog(`${tag} 최종 실패 (${lastNotFound ? '심볼없음' : '전송실패'})`);
                 return lastNotFound ? 'notfound' : 'error';
             }
         }
@@ -1061,7 +1001,6 @@
         // 전용 프록시가 있으면 병렬 고속 경로.
         const useSeq = !proxies.some(p => p.name === 'custom');
         let overloaded = false;
-        if (useSeq) plog('순차 모드 (공용 프록시 보호)');
         let passTotal = 0, passDone = 0, passName = '갱신중';
         const paintProgress = () => {
             label.textContent = `${passName} ${passDone}/${passTotal}`;
@@ -1089,8 +1028,6 @@
                 if (st === 'error') {
                     if (++consecErr >= 2) {
                         overloaded = true;
-                        const left = list.length - passDone;
-                        plog(`⚠️ 프록시 과부하 감지(연속 2건 전송실패) → 나머지 ${left}건 중단`);
                         for (const rest of list.slice(passDone)) {
                             failedIdx.push({ s: rest.s, i: rest.i, raw: String(rest.s.code).toUpperCase().trim() });
                         }
@@ -1100,20 +1037,15 @@
                 await sleep(300);
             }
         }
-        plog(`=== 갱신 시작 (${targets.length}건) ===`);
         // 최대 3웨이브: 실패분은 3초 대기 후 재시도 (과부하 중단 시 조기 종료)
         for (let wave = 1; wave <= 3; wave++) {
             if (wave > 1) {
                 if (failedIdx.length === 0 || overloaded) break;
                 passName = '재시도 중';
                 status.textContent = `🔁 ${failedIdx.length}건 재시도 중... (잠시만요)`;
-                plog(`=== ${wave}차 재시도 (${failedIdx.length}건) ===`);
                 await sleep(3000);
             }
             await runPass(wave === 1 ? targets : failedIdx.splice(0), wave);
-        }
-        if (overloaded) {
-            plog('과부하 중단 상태라 추가 재시도를 생략합니다.');
         }
 
         markLoadingRows(false);
@@ -1221,8 +1153,6 @@
         const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(fCode)}?interval=1d&range=1d`;
         let sawNotFound = false;
         for (const p of proxies) {
-            const t0 = performance.now();
-            const sec = () => ((performance.now() - t0) / 1000).toFixed(1) + 's';
             try {
                 const out = extractPrice(await tryProxy(p, targetUrl));
                 if (out.price !== undefined) {
@@ -1231,18 +1161,14 @@
                     if (typeof out.prevClose === 'number' && out.prevClose !== 0) {
                         chgPct = (out.price - out.prevClose) / out.prevClose * 100;
                     }
-                    const chgTxt = (chgPct === null) ? '전일비없음' : `${chgPct >= 0 ? '+' : ''}${chgPct.toFixed(2)}%`;
-                    plog(`${tag} ${fCode} via ${p.name} → 200, price=${out.price}, prev=${out.prevClose ?? '-'} (${chgTxt}) (${sec()}) ✅`);
                     return { price: out.price, prevClose: out.prevClose, chgPct, via: p.name };
                 }
                 if (out.notFound) {
                     sawNotFound = true;
-                    plog(`${tag} ${fCode} via ${p.name} → Yahoo Not Found (${sec()})`);
                     break; // 심볼 자체가 없음 → 다른 프록시도 동일
                 }
-                plog(`${tag} ${fCode} via ${p.name} → 응답있으나 가격없음 (${sec()})`);
             } catch (e) {
-                plog(`${tag} ${fCode} via ${p.name} → ${e.message} (${sec()}) ❌`);
+                // 다음 프록시로 계속
             }
         }
         return sawNotFound ? { notFound: true } : {};
