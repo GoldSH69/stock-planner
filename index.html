@@ -570,6 +570,12 @@
         .desktop-table th, .desktop-table td { vertical-align: middle !important; }
         .loss { color: #DC2626 !important; background: rgba(239, 68, 68, .13) !important; border-radius: 99px !important; padding: 2px 8px !important; font-size: 11.5px !important; line-height: 1.5 !important; white-space: nowrap !important; }
         .gain { color: #059669 !important; background: rgba(16, 185, 129, .15) !important; border-radius: 99px !important; padding: 2px 8px !important; font-size: 11.5px !important; line-height: 1.5 !important; white-space: nowrap !important; }
+        /* 현재가 아래 전일대비 / 손익금액 2단 표시용 */
+        .chg-badge { margin-top: 4px !important; font-size: 11px !important; }
+        .profit-amt { display: block; margin-top: 4px; font-size: 11.5px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .profit-amt.profit-plus { color: #059669; }
+        .profit-amt.profit-minus { color: #DC2626; }
+        .profit-amt.profit-zero { color: #64748b; }
         tr.price-failed input[id*="stock-curr-"] {
             border-color: rgba(220, 38, 38, .4) !important;
             background: rgba(239, 68, 68, .13) !important;
@@ -765,9 +771,9 @@
                     <col style="width: auto;">   <!-- 종목명 -->
                     <col style="width: 120px;">  <!-- 매입액 -->
                     <col style="width: 80px;">   <!-- 수량 -->
-                    <col style="width: 110px;">  <!-- 현재가 -->
+                    <col style="width: 120px;">  <!-- 현재가 + 전일비 -->
                     <col style="width: 120px;">  <!-- 평가액 -->
-                    <col style="width: 94px;">   <!-- 손익% -->
+                    <col style="width: 125px;">  <!-- 손익(%+금액) -->
                     <col style="width: 75px;">   <!-- 비중 -->
                     <col style="width: 80px;">   <!-- 목표% -->
                     <col style="width: 111px;">  <!-- 추가매수 추천 -->
@@ -779,9 +785,9 @@
                         <th>종목명</th>
                         <th>매입액</th>
                         <th>수량</th>
-                        <th>현재가</th>
+                        <th>현재가/전일비</th>
                         <th>평가액</th>
-                        <th>손익%</th>
+                        <th>손익</th>
                         <th>비중</th>
                         <th>목표%</th>
                         <th style="color:#4f46e5;">추가매수</th>
@@ -1023,22 +1029,23 @@
             const candidates = raw.includes('.') ? [raw] : [raw + '.KS', raw + '.KQ'];
             const tag = `[${wave}차:${raw}]`;
             plog(`${tag} 조회 시작 (후보: ${candidates.join(', ')})`);
-            let price = null, via = '', lastNotFound = false;
+            let price = null, prevClose = null, chgPct = null, via = '', lastNotFound = false;
             for (const fCode of candidates) {
                 const r = await queryYahoo(fCode, proxies, tag);
                 lastNotFound = !!r.notFound;
-                if (r.price !== undefined) { price = r.price; via = r.via; break; }
+                if (r.price !== undefined) { price = r.price; prevClose = (typeof r.prevClose === 'number' ? r.prevClose : null); chgPct = (typeof r.chgPct === 'number' ? r.chgPct : null); via = r.via; break; }
                 if (!r.notFound) break; // 네트워크 실패면 .KQ 재시도 무의미 → 즉시 중단
             }
             if (price !== null) {
                 s.curr = price;
+                if (prevClose !== null) s.prevClose = prevClose;
                 if (via) viaCount[via] = (viaCount[via] || 0) + 1;
-                paintPriceCell(i, price, true);
+                paintPriceCell(i, price, true, prevClose);
                 plog(`${tag} 최종 성공: ${price} (${via})`);
                 return 'ok';
             } else {
                 failedIdx.push({ s, i, raw });
-                paintPriceCell(i, null, false);
+                paintPriceCell(i, null, false, null);
                 plog(`${tag} 최종 실패 (${lastNotFound ? '심볼없음' : '전송실패'})`);
                 return lastNotFound ? 'notfound' : 'error';
             }
@@ -1162,14 +1169,18 @@
         return head.concat(rest);
     }
 
-    // Yahoo 응답에서 가격 추출. {price} | {notFound:true} | {}(판단불가)
+    // Yahoo 응답에서 가격 추출. {price, prevClose} | {notFound:true} | {}(판단불가)
+    // prevClose = 전일종가 (chartPreviousClose 우선, 없으면 previousClose)
     function extractPrice(data) {
         try {
             const chart = data && data.chart;
             if (!chart) return {};
             const r = chart.result;
             if (r && r[0] && r[0].meta && typeof r[0].meta.regularMarketPrice === 'number') {
-                return { price: r[0].meta.regularMarketPrice };
+                const meta = r[0].meta;
+                const prev = (typeof meta.chartPreviousClose === 'number') ? meta.chartPreviousClose
+                    : (typeof meta.previousClose === 'number' ? meta.previousClose : null);
+                return { price: meta.regularMarketPrice, prevClose: prev };
             }
             const err = chart.error || {};
             const msg = `${err.code || ''} ${err.description || ''}`;
@@ -1210,8 +1221,13 @@
                 const out = extractPrice(await tryProxy(p, targetUrl));
                 if (out.price !== undefined) {
                     bumpProxyScore(p.name);
-                    plog(`${tag} ${fCode} via ${p.name} → 200, price=${out.price} (${sec()}) ✅`);
-                    return { price: out.price, via: p.name };
+                    let chgPct = null;
+                    if (typeof out.prevClose === 'number' && out.prevClose !== 0) {
+                        chgPct = (out.price - out.prevClose) / out.prevClose * 100;
+                    }
+                    const chgTxt = (chgPct === null) ? '전일비없음' : `${chgPct >= 0 ? '+' : ''}${chgPct.toFixed(2)}%`;
+                    plog(`${tag} ${fCode} via ${p.name} → 200, price=${out.price}, prev=${out.prevClose ?? '-'} (${chgTxt}) (${sec()}) ✅`);
+                    return { price: out.price, prevClose: out.prevClose, chgPct, via: p.name };
                 }
                 if (out.notFound) {
                     sawNotFound = true;
@@ -1231,12 +1247,39 @@
         document.querySelectorAll('#pcBody tr').forEach(tr => tr.classList.toggle('price-loading', on));
     }
 
+    // 전일대비 정보: {txt, cls} 또는 null (데이터 없을 때)
+    function chgInfo(s) {
+        const curr = pN(s.curr);
+        const prev = pN(s.prevClose);
+        if (!prev || !curr) return null;
+        const pct = (curr - prev) / prev * 100;
+        return {
+            pct,
+            txt: `${pct > 0 ? '+' : ''}${pct.toFixed(2)}%`,
+            cls: pct < 0 ? 'loss' : 'gain'
+        };
+    }
+
     // 완료된 셀을 그 자리에서 즉시 반영 (전체 리렌더 없이)
-    function paintPriceCell(i, price, ok) {
+    function paintPriceCell(i, price, ok, prevClose) {
         ['stock-curr-', 'mob-stock-curr-'].forEach(prefix => {
             const el = document.getElementById(prefix + i);
             if (el && price !== null) el.value = fN(price);
         });
+        // 전일대비 뱃지 즉시 갱신 (calculate() 전면 리렌더 전이라도 바로 표시)
+        if (ok && typeof prevClose === 'number' && prevClose !== 0 && price !== null) {
+            const pct = (price - prevClose) / prevClose * 100;
+            const txt = `${pct > 0 ? '+' : ''}${pct.toFixed(2)}%`;
+            const cls = pct < 0 ? 'loss' : 'gain';
+            ['stock-chg-', 'mob-stock-chg-'].forEach(prefix => {
+                const badge = document.getElementById(prefix + i);
+                if (badge) {
+                    badge.textContent = txt;
+                    badge.className = cls + ' chg-badge';
+                    badge.style.display = 'inline-block';
+                }
+            });
+        }
         if (!ok) {
             const tr = document.querySelector(`#stock-curr-${CSS.escape(String(i))}`)?.closest('tr');
             if (tr) tr.classList.add('price-failed');
@@ -1363,8 +1406,13 @@
         stocks.forEach((s, i) => {
             const ev = idealBuys[i].ev;
             const idealBuy = idealBuys[i].idealBuy;
-            const pRate = s.buy > 0 ? ((ev - s.buy) / s.buy * 100).toFixed(2) : 0;
+            const buyAmt = pN(s.buy);
+            const pRate = buyAmt > 0 ? ((ev - buyAmt) / buyAmt * 100).toFixed(2) : 0;
+            const profitAmt = ev - buyAmt;
+            const profitCls = profitAmt < 0 ? 'profit-minus' : (profitAmt > 0 ? 'profit-plus' : 'profit-zero');
+            const profitSign = profitAmt > 0 ? '+' : '';
             const weight = totalEval > 0 ? (ev / totalEval * 100).toFixed(1) : 0;
+            const chg = chgInfo(s);
 
             // 추가매수 비례 배분 공식
             let buySug = 0;
@@ -1382,9 +1430,9 @@
                 <td><input type="text" id="stock-name-${i}" value="${escapeHtml(s.name)}" class="input-left" onchange="upd(${i},'name',this.value)"></td>
                 <td><input type="text" id="stock-buy-${i}" value="${fN(s.buy)}" class="input-right" inputmode="decimal" onchange="updF(${i},'buy',this)"></td>
                 <td><input type="text" id="stock-qty-${i}" value="${fN(s.qty)}" class="input-right" inputmode="decimal" onchange="updF(${i},'qty',this)"></td>
-                <td><input type="text" id="stock-curr-${i}" value="${fN(s.curr)}" class="input-right" inputmode="decimal" onchange="updF(${i},'curr',this)"></td>
+                <td><input type="text" id="stock-curr-${i}" value="${fN(s.curr)}" class="input-right" inputmode="decimal" onchange="updF(${i},'curr',this)"><div>${chg ? `<span id="stock-chg-${i}" class="${chg.cls} chg-badge">${chg.txt}</span>` : `<span id="stock-chg-${i}" class="chg-badge" style="display:none;"></span>`}</div></td>
                 <td style="text-align: right; font-weight: 500;">${fN(ev)}</td>
-                <td style="text-align: right;"><span class="${pClass}">${pRate > 0 ? '+' : ''}${pRate}%</span></td>
+                <td style="text-align: right;"><span class="${pClass}">${pRate > 0 ? '+' : ''}${pRate}%</span><span class="profit-amt ${profitCls}">${profitSign}${fN(profitAmt)}</span></td>
                 <td style="text-align: right; font-weight: 500; color: #475569;">${weight}%</td>
                 <td><input type="text" id="stock-target-${i}" value="${s.target}" class="input-center" onchange="upd(${i},'target',pN(this.value))"></td>
                 <td style="text-align: right; color:#4f46e5; font-weight:700">${fN(Math.round(buySug))}</td>
@@ -1425,6 +1473,7 @@
                     <div>
                         <span class="label">현재가</span>
                         <input type="text" id="mob-stock-curr-${i}" value="${fN(s.curr)}" class="input-right" inputmode="decimal" onchange="updF(${i},'curr',this)">
+                        <div style="margin-top:4px;">${chg ? `<span id="mob-stock-chg-${i}" class="${chg.cls} chg-badge">${chg.txt}</span>` : `<span id="mob-stock-chg-${i}" class="chg-badge" style="display:none;"></span>`}</div>
                     </div>
                     <div>
                         <span class="label">목표%</span>
@@ -1436,8 +1485,8 @@
                     <span style="font-weight: 600; color: #0f172a;">${fN(ev)}원</span>
                 </div>
                 <div class="card-row">
-                    <span class="label" style="font-size:11px; color:#64748b;">손익률 / 비중</span>
-                    <span><span class="${pClass}">${pRate > 0 ? '+' : ''}${pRate}%</span> / <b style="color: #475569;">${weight}%</b></span>
+                    <span class="label" style="font-size:11px; color:#64748b;">손익 / 비중</span>
+                    <span style="text-align:right;"><span class="${pClass}">${pRate > 0 ? '+' : ''}${pRate}%</span> / <b style="color: #475569;">${weight}%</b><span class="profit-amt ${profitCls}">${profitSign}${fN(profitAmt)}원</span></span>
                 </div>
                 <div class="card-row" style="border-bottom:none; padding-bottom:0; margin-bottom:0; font-weight:bold; font-size:13px; align-items:center;">
                     <span class="label" style="color:#4f46e5; font-weight:700; margin-bottom:0;">추가매수 추천</span>
@@ -1450,6 +1499,9 @@
         // 10. 합계 행 계산 및 렌더링
         const totalRate = totalBuySum > 0 ? ((totalEval - totalBuySum) / totalBuySum * 100).toFixed(2) : 0;
         const totalClass = totalRate < 0 ? 'loss' : 'gain';
+        const totalProfit = totalEval - totalBuySum;
+        const totalProfitCls = totalProfit < 0 ? 'profit-minus' : (totalProfit > 0 ? 'profit-plus' : 'profit-zero');
+        const totalProfitSign = totalProfit > 0 ? '+' : '';
         
         // PC 합계 행 렌더링
         const ft = document.createElement('tr');
@@ -1459,7 +1511,7 @@
             <td>-</td>
             <td>-</td>
             <td style="text-align: right; font-weight: 600;">${fN(totalEval)}</td>
-            <td style="text-align: right; font-weight: 600;"><span class="${totalClass}">${totalRate > 0 ? '+' : ''}${totalRate}%</span></td>
+            <td style="text-align: right; font-weight: 600;"><span class="${totalClass}">${totalRate > 0 ? '+' : ''}${totalRate}%</span><span class="profit-amt ${totalProfitCls}">${totalProfitSign}${fN(totalProfit)}</span></td>
             <td>-</td>
             <td>-</td> 
             <td style="text-align: right; color:#4f46e5; font-weight:700">${fN(Math.round(totalSugSum))}</td>
@@ -1486,8 +1538,8 @@
                 <span style="font-weight:600; color:#1e293b;">${fN(totalEval)}원</span>
             </div>
             <div class="card-row">
-                <span class="label" style="font-size:11px; color:#64748b;">총 손익률</span>
-                <span class="${totalClass}"><b>${totalRate > 0 ? '+' : ''}${totalRate}%</b></span>
+                <span class="label" style="font-size:11px; color:#64748b;">총 손익</span>
+                <span style="text-align:right;"><span class="${totalClass}"><b>${totalRate > 0 ? '+' : ''}${totalRate}%</b></span><span class="profit-amt ${totalProfitCls}">${totalProfitSign}${fN(totalProfit)}원</span></span>
             </div>
             <div class="card-row" style="border-bottom:none; padding-bottom:0; margin-bottom:0; font-weight:bold; font-size:13px; align-items:center;">
                 <span class="label" style="color:#4f46e5; font-weight:bold; margin-bottom:0;">총 추가매수액</span>
@@ -1538,7 +1590,7 @@
     }
     
     function addStock() { 
-        stocks.push({code:'', name:'', buy:0, qty:0, curr:0, target:0}); 
+        stocks.push({code:'', name:'', buy:0, qty:0, curr:0, prevClose:0, target:0}); 
         calculate(); 
     }
     
@@ -1601,6 +1653,7 @@
                         buy: ci.buy >= 0 ? pN(c[ci.buy]) : 0,
                         qty: ci.qty >= 0 ? pN(c[ci.qty]) : 0,
                         curr: ci.curr >= 0 ? pN(c[ci.curr]) : 0,
+                        prevClose: 0,
                         target: ci.target >= 0 ? pN(c[ci.target]) : 0
                     });
                 }
