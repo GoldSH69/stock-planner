@@ -1344,19 +1344,19 @@
             const idealBuy = idealBuys[i].idealBuy;
             const buyAmt = pN(s.buy);
             const qtyAmt = pN(s.qty);
-            // 수수료 반영 손익: 매도수수료(ev*FEE) 차감 + 매수수수료(buy*FEE) 가산
-            // 실수령액 = ev * (1 - FEE_RATE), 실투자금 = buyAmt * (1 + FEE_RATE)
+            // 수수료 반영 손익(편도 0.03%): 매도수수료(ev*FEE)만 차감
+            // 손익 = 평가액 - 매도수수료 - 매입액 (매수수수료는 실단가 참고용으로만 표시)
             const sellFee = ev * FEE_RATE;
             const buyFee = buyAmt * FEE_RATE;
-            const fee = sellFee + buyFee;
+            const fee = sellFee;
             const netEv = ev - sellFee;
             const netBuy = buyAmt + buyFee;
-            // 수수료 반영 매입단가 = 실투자금 / 수량
+            // 수수료 반영 매입단가 = 실투자금 / 수량 (매수수수료 포함 참고용)
             const unitBuy = qtyAmt > 0 ? buyAmt / qtyAmt : 0;
             const netUnitBuy = qtyAmt > 0 ? netBuy / qtyAmt : 0;
-            const profitAmt = netEv - netBuy;
+            const profitAmt = netEv - buyAmt;
             const grossProfit = ev - buyAmt;
-            const pRate = netBuy > 0 ? (profitAmt / netBuy * 100).toFixed(2) : 0;
+            const pRate = buyAmt > 0 ? (profitAmt / buyAmt * 100).toFixed(2) : 0;
             const profitCls = profitAmt < 0 ? 'profit-minus' : (profitAmt > 0 ? 'profit-plus' : 'profit-zero');
             const profitSign = profitAmt > 0 ? '+' : '';
             const weight = totalEval > 0 ? (ev / totalEval * 100).toFixed(1) : 0;
@@ -1379,8 +1379,8 @@
                 <td><input type="text" id="stock-buy-${i}" value="${fN(s.buy)}" class="input-right" inputmode="decimal" onchange="updF(${i},'buy',this)">${qtyAmt > 0 ? `<div style="margin-top:4px; font-size:10.5px; color:#8B8494; text-align:right; font-variant-numeric:tabular-nums;" title="수수료 전 매입단가 @${fN(unitBuy)}원">실단가 @${fN(netUnitBuy)}원</div>` : ''}</td>
                 <td><input type="text" id="stock-qty-${i}" value="${fN(s.qty)}" class="input-right" inputmode="decimal" onchange="updF(${i},'qty',this)"></td>
                 <td class="cell-right"><input type="text" id="stock-curr-${i}" value="${fN(s.curr)}" class="input-right" inputmode="decimal" onchange="updF(${i},'curr',this)"><div class="chg-wrap">${chg ? `<span id="stock-chg-${i}" class="${chg.cls} chg-badge">${chg.txt}</span>` : `<span id="stock-chg-${i}" class="chg-badge" style="display:none;"></span>`}</div></td>
-                <td style="text-align: right; font-weight: 500;">${fN(ev)}</td>
-                <td class="cell-right"><div class="cell-stack"><span class="${pClass}" title="수수료 차감 전: ${profitSign}${fN(grossProfit)}원 / 수수료 ${fN(Math.round(fee))}원 차감">${pRate > 0 ? '+' : ''}${pRate}%</span><span class="profit-amt ${profitCls}">${profitSign}${fN(profitAmt)}</span><span style="font-size:10px; color:#94a3b8; font-weight:400;" title="매수수수료 ${fN(Math.round(buyFee))}원 + 매도수수료 ${fN(Math.round(sellFee))}원">수수료 ${fN(Math.round(fee))}원 차감</span></div></td>
+                <td style="text-align: right; font-weight: 500;" title="실수령액(매도수수료 차감 후): ${fN(netEv)}원">${fN(ev)}</td>
+                <td class="cell-right"><div class="cell-stack"><span class="${pClass}" title="수수료 차감 전: ${profitSign}${fN(grossProfit)}원 / 매도수수료 ${fN(Math.round(fee))}원 차감">${pRate > 0 ? '+' : ''}${pRate}%</span><span class="profit-amt ${profitCls}">${profitSign}${fN(profitAmt)}</span><span style="font-size:10px; color:#94a3b8; font-weight:400;" title="매도수수료(0.03%) ${fN(Math.round(sellFee))}원 차감">수수료 ${fN(Math.round(fee))}원 차감</span></div></td>
                 <td style="text-align: right; font-weight: 500; color: #475569;">${weight}%</td>
                 <td><input type="text" id="stock-target-${i}" value="${s.target}" class="input-center" onchange="upd(${i},'target',pN(this.value))"></td>
                 <td style="text-align: right; color:#4f46e5; font-weight:700">${fN(Math.round(buySug))}</td>
@@ -1445,14 +1445,12 @@
             mobBody.appendChild(card);
         });
         
-        // 10. 합계 행 계산 및 렌더링 (수수료 반영)
+        // 10. 합계 행 계산 및 렌더링 (수수료 반영, 편도 0.03%)
         const totalSellFee = totalEval * FEE_RATE;
-        const totalBuyFee = totalBuySum * FEE_RATE;
-        const totalFee = totalSellFee + totalBuyFee;
+        const totalFee = totalSellFee;
         const totalNetEv = totalEval - totalSellFee;
-        const totalNetBuy = totalBuySum + totalBuyFee;
-        const totalProfit = totalNetEv - totalNetBuy;
-        const totalRate = totalNetBuy > 0 ? (totalProfit / totalNetBuy * 100).toFixed(2) : 0;
+        const totalProfit = totalNetEv - totalBuySum;
+        const totalRate = totalBuySum > 0 ? (totalProfit / totalBuySum * 100).toFixed(2) : 0;
         const totalClass = totalRate < 0 ? 'loss' : 'gain';
         const totalProfitCls = totalProfit < 0 ? 'profit-minus' : (totalProfit > 0 ? 'profit-plus' : 'profit-zero');
         const totalProfitSign = totalProfit > 0 ? '+' : '';
@@ -1464,8 +1462,8 @@
             <td style="text-align: right; font-weight: 600;">${fN(totalBuySum)}</td>
             <td>-</td>
             <td>-</td>
-            <td style="text-align: right; font-weight: 600;">${fN(totalEval)}</td>
-            <td style="text-align: right; font-weight: 600;"><div class="cell-stack"><span class="${totalClass}" title="수수료 차감 전: ${totalProfitSign}${fN(totalEval - totalBuySum)}원 / 수수료 ${fN(Math.round(totalFee))}원 차감">${totalRate > 0 ? '+' : ''}${totalRate}%</span><span class="profit-amt ${totalProfitCls}">${totalProfitSign}${fN(totalProfit)}</span><span style="font-size:10px; color:#94a3b8; font-weight:400;">수수료 ${fN(Math.round(totalFee))}원 차감</span></div></td>
+            <td style="text-align: right; font-weight: 600;" title="실수령액(매도수수료 차감 후): ${fN(totalNetEv)}">${fN(totalEval)}</td>
+            <td style="text-align: right; font-weight: 600;"><div class="cell-stack"><span class="${totalClass}" title="수수료 차감 전: ${totalProfitSign}${fN(totalEval - totalBuySum)}원 / 매도수수료 ${fN(Math.round(totalFee))}원 차감">${totalRate > 0 ? '+' : ''}${totalRate}%</span><span class="profit-amt ${totalProfitCls}">${totalProfitSign}${fN(totalProfit)}</span><span style="font-size:10px; color:#94a3b8; font-weight:400;">수수료 ${fN(Math.round(totalFee))}원 차감</span></div></td>
             <td>-</td>
             <td>-</td> 
             <td style="text-align: right; color:#4f46e5; font-weight:700">${fN(Math.round(totalSugSum))}</td>
