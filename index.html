@@ -12,6 +12,23 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        /* 0. 디자인 토큰 (라이트/다크 공용) */
+        :root {
+            --font-sans: "Pretendard Variable", "Pretendard", "SUIT Variable", -apple-system, system-ui, "Malgun Gothic", sans-serif;
+            --fs-body: 14px;
+            --c-text: #2A2431;
+            --c-text-muted: #8B8494;
+            --c-accent: #6C5CE7;
+            --c-accent-2: #8E7CF5;
+            --c-loss: #DC2626;
+            --c-gain: #059669;
+            --c-warn: #92400e;
+            --c-surface: rgba(255, 255, 255, .72);
+            --c-border: rgba(255, 255, 255, .85);
+            --r-pill: 99px;
+            --r-card: 20px;
+            --shadow-card: 0 8px 32px rgba(90, 70, 150, .14);
+        }
         /* 1. 디자인 시스템 정의 (슬레이트 & 인디고 테마) */
         * { 
             box-sizing: border-box; 
@@ -20,7 +37,6 @@
         }
         body { 
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, 'Malgun Gothic', '맑은 고딕', sans-serif !important; 
-            font-size: 13px !important; 
             background: #f8fafc; /* Slate 50 */
             color: #0f172a; /* Slate 900 */
             padding: 20px 10px;
@@ -196,9 +212,15 @@
             box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
         }
 
-        /* 반응형 제어 */
+        /* 반응형 제어: 1100px=표 축소, 768px=카드 전환 */
         .mobile-list { display: none; margin-top: 15px; }
-        @media (max-width: 950px) {
+        @media (max-width: 1100px) {
+            .desktop-table th, .desktop-table td { padding: 8px 5px; }
+            .desktop-table input { font-size: 12px !important; padding: 4px 6px; }
+            .desktop-table th { font-size: 10px; }
+            .unit-price { font-size: 10px; padding: 1px 6px; }
+        }
+        @media (max-width: 768px) {
             .table-responsive { display: none; }
             .mobile-list { display: block; }
         }
@@ -306,6 +328,66 @@
             border-radius: 4px;
             display: inline-block;
         }
+
+        /* 평단가 pill 뱃지 */
+        .unit-price {
+            display: inline-block;
+            margin-top: 4px;
+            font-size: 10.5px;
+            font-weight: 700;
+            color: var(--c-accent);
+            background: rgba(108, 92, 231, .10);
+            border: 1px solid rgba(108, 92, 231, .22);
+            border-radius: var(--r-pill);
+            padding: 1px 8px;
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+            cursor: default;
+        }
+
+        /* 목표% 합계 경고 입력 */
+        .desktop-table input.input-warn,
+        .mobile-grid input.input-warn {
+            border-color: #F59E0B !important;
+            background: rgba(245, 158, 11, .12) !important;
+        }
+        .desktop-table input.input-warn:focus,
+        .mobile-grid input.input-warn:focus {
+            box-shadow: 0 0 0 3px rgba(245, 158, 11, .22) !important;
+        }
+
+        /* 시세 실패 행 재시도 */
+        .btn-retry {
+            margin-left: 6px;
+            font-size: 10px;
+            font-weight: 700;
+            font-family: inherit;
+            border: 1px solid rgba(220, 38, 38, .35);
+            background: rgba(239, 68, 68, .10);
+            color: var(--c-loss);
+            border-radius: var(--r-pill);
+            padding: 1px 8px;
+            cursor: pointer;
+            transition: background .15s ease;
+        }
+        .btn-retry:hover { background: rgba(239, 68, 68, .20); }
+
+        /* 빈 상태 (종목 0건) */
+        .empty-state {
+            text-align: center;
+            padding: 48px 20px;
+            border: 1.5px dashed #D9D3E8;
+            border-radius: 16px;
+            background: rgba(108, 92, 231, .04);
+        }
+        .empty-icon { font-size: 34px; margin-bottom: 10px; }
+        .empty-title { font-size: 15px; font-weight: 800; color: var(--c-text); margin-bottom: 6px; }
+        .empty-desc { font-size: 12.5px; color: var(--c-text-muted); margin-bottom: 16px; line-height: 1.6; }
+
+        /* 행 hover + 삭제 버튼 노출 */
+        .desktop-table .btn-delete { opacity: .45; }
+        .desktop-table tbody tr:hover .btn-delete,
+        .desktop-table .btn-delete:focus-visible { opacity: 1; }
 
         /* 설정 모달 */
         #configModal { 
@@ -660,10 +742,115 @@
 
         .btn-delete:hover { background: rgba(239, 68, 68, .13) !important; color: #DC2626 !important; }
 
-        @media (max-width: 950px) {
+        @media (max-width: 768px) {
             body { padding: 12px !important; }
             .card-panel { padding: 16px !important; border-radius: 16px !important; }
             .header-title.page-title { font-size: 18px !important; }
+            /* 모바일 성능: blob·backdrop 필터 비활성화 */
+            .blob { display: none !important; }
+            .card-panel, .table-responsive, .stock-card, .btn, #configModal {
+                backdrop-filter: none !important;
+                -webkit-backdrop-filter: none !important;
+            }
+            .btn { box-shadow: none !important; }
+            .stock-card:hover { transform: none; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .blob { display: none; }
+        }
+
+        /* 다크 모드 (OS 설정 자동 반영) */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --c-text: #E9E5F2;
+                --c-text-muted: #9B93AB;
+                --c-surface: rgba(36, 31, 48, .78);
+                --c-border: rgba(255, 255, 255, .10);
+                --shadow-card: 0 8px 32px rgba(0, 0, 0, .40);
+            }
+            body {
+                background: linear-gradient(150deg, #17131F 0%, #1B1713 45%, #14171F 100%) !important;
+                color: #E9E5F2 !important;
+            }
+            .bg { background: linear-gradient(150deg, #17131F 0%, #1B1713 45%, #14171F 100%); }
+            .blob { opacity: .3; }
+            .card-panel {
+                background: rgba(36, 31, 48, .78) !important;
+                border-color: rgba(255, 255, 255, .10) !important;
+                box-shadow: 0 8px 32px rgba(0, 0, 0, .40) !important;
+            }
+            .card-panel::after { background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .12), transparent); }
+            .crumb { color: #9B93AB; }
+            .crumb b, .header-title, .header-title.page-title { color: #E9E5F2 !important; }
+            .stat-box {
+                background: rgba(255, 255, 255, .05) !important;
+                border-color: rgba(255, 255, 255, .08) !important;
+            }
+            .stat-box .label { color: #9B93AB !important; }
+            .stat-box .value, .stat-box input, .stat-box select { color: #E9E5F2 !important; }
+            .stat-box input[readonly] { color: #9B93AB !important; }
+            .stat-box select option { background: #241F30; color: #E9E5F2; }
+            .stat-box.stat-accent { background: rgba(108, 92, 231, .20) !important; }
+            .table-responsive {
+                background: rgba(36, 31, 48, .78);
+                border-color: rgba(255, 255, 255, .08) !important;
+            }
+            .desktop-table th {
+                background: rgba(255, 255, 255, .04) !important;
+                color: #9B93AB !important;
+                border-bottom-color: rgba(255, 255, 255, .10) !important;
+            }
+            .desktop-table td { border-bottom-color: rgba(255, 255, 255, .06) !important; }
+            .desktop-table tbody tr:hover { background: rgba(255, 255, 255, .05) !important; }
+            .desktop-table input, .mobile-grid input, #configModal input {
+                background: rgba(255, 255, 255, .06) !important;
+                color: #E9E5F2 !important;
+                border-color: rgba(255, 255, 255, .12) !important;
+            }
+            .desktop-table input::placeholder, .mobile-grid input::placeholder, #memoArea::placeholder { color: #9B93AB; }
+            tfoot tr { background: rgba(255, 255, 255, .05) !important; }
+            tfoot td { color: #E9E5F2 !important; }
+            .stock-card {
+                background: rgba(36, 31, 48, .70) !important;
+                border-color: rgba(255, 255, 255, .08) !important;
+            }
+            .mobile-grid .label { color: #9B93AB !important; }
+            .btn {
+                background: rgba(255, 255, 255, .07) !important;
+                border-color: rgba(255, 255, 255, .12) !important;
+                color: #C9C2D8 !important;
+            }
+            .btn:hover { background: rgba(255, 255, 255, .12) !important; color: #E9E5F2 !important; }
+            #memoArea {
+                background: rgba(255, 255, 255, .06) !important;
+                color: #E9E5F2 !important;
+                border-color: rgba(255, 255, 255, .12) !important;
+            }
+            #configModal {
+                background: rgba(36, 31, 48, .94) !important;
+                border-color: rgba(255, 255, 255, .10) !important;
+            }
+            #configModal span.label { color: #9B93AB !important; }
+            #configModal b { color: #E9E5F2 !important; }
+            .overlay { background: rgba(0, 0, 0, .55) !important; }
+            #priceStatus { color: #C9C2D8 !important; }
+            .unit-price {
+                background: rgba(108, 92, 231, .22) !important;
+                border-color: rgba(142, 124, 245, .40) !important;
+                color: #A99CFF !important;
+            }
+            .profit-amt.profit-zero { color: #9B93AB; }
+            #targetWarn { color: #FCD34D !important; }
+            .empty-state {
+                background: rgba(255, 255, 255, .04);
+                border-color: rgba(255, 255, 255, .14);
+            }
+            .empty-title { color: #E9E5F2; }
+            .empty-desc { color: #9B93AB; }
+            tr.price-failed input[id*="stock-curr-"] {
+                border-color: rgba(220, 38, 38, .5) !important;
+                background: rgba(239, 68, 68, .16) !important;
+            }
         }
     </style>
 </head>
@@ -706,11 +893,11 @@
         </div>
         <div class="summary-grid">
             <div class="stat-box">
-                <span class="label">총 투자 가용금 (년)</span>
+                <span class="label">연간 총 투자 예산</span>
                 <input type="text" id="totalBudget" value="20,000,000" onchange="uiFormat(this)">
             </div>
             <div class="stat-box" style="background-color: #f8fafc;">
-                <span class="label">기투자 금액 (매입합계)</span>
+                <span class="label">기투자 금액</span>
                 <input type="text" id="currentInvested" value="0" readonly style="border-bottom:none; color:#475569; cursor:not-allowed;">
             </div>
             <div class="stat-box">
@@ -739,7 +926,7 @@
                 <div class="value" id="accumBudget" style="color:#475569;">0</div>
             </div>
             <div class="stat-box stat-accent">
-                <span class="label">당월 잔여 투자금 (이월 포함)</span>
+                <span class="label">당월 잔여 투자금</span>
                 <div class="value" id="resMonAvail" style="font-size: 20px;">0</div>
             </div>
         </div>
@@ -750,17 +937,17 @@
         <div class="table-responsive">
             <table class="desktop-table">
                 <colgroup>
-                    <col style="width: 100px;">  <!-- 코드 -->
-                    <col style="width: auto;">   <!-- 종목명 -->
-                    <col style="width: 120px;">  <!-- 매입액 -->
-                    <col style="width: 80px;">   <!-- 수량 -->
-                    <col style="width: 120px;">  <!-- 현재가 + 전일비 -->
-                    <col style="width: 120px;">  <!-- 평가액 -->
-                    <col style="width: 125px;">  <!-- 손익(%+금액) -->
-                    <col style="width: 75px;">   <!-- 비중 -->
-                    <col style="width: 80px;">   <!-- 목표% -->
-                    <col style="width: 111px;">  <!-- 추가매수 추천 -->
-                    <col style="width: 45px;">   <!-- 삭제버튼 -->
+                    <col style="width: 8%;">   <!-- 코드 -->
+                    <col style="width: 15%;">  <!-- 종목명 -->
+                    <col style="width: 11%;">  <!-- 매입액 -->
+                    <col style="width: 6%;">   <!-- 수량 -->
+                    <col style="width: 10%;">  <!-- 현재가 + 전일비 -->
+                    <col style="width: 10%;">  <!-- 평가액 -->
+                    <col style="width: 11%;">  <!-- 손익(%+금액) -->
+                    <col style="width: 7%;">   <!-- 비중 -->
+                    <col style="width: 7%;">   <!-- 목표% -->
+                    <col style="width: 11%;">  <!-- 추가매수 추천 -->
+                    <col style="width: 4%;">   <!-- 삭제버튼 -->
                 </colgroup>
                 <thead>
                     <tr>
@@ -770,7 +957,7 @@
                         <th>수량</th>
                         <th>현재가/전일비</th>
                         <th>평가액</th>
-                        <th>손익<br><span style="font-size:9px; font-weight:500; text-transform:none; letter-spacing:0; color:#94a3b8;">수수료 0.03% 반영</span></th>
+                        <span class="label">손익<br><span style="font-size:9px; font-weight:500; text-transform:none; letter-spacing:0; color:#94a3b8;">수수료 0.03% 반영</span></th>
                         <th>비중</th>
                         <th>목표%</th>
                         <th style="color:#4f46e5;">추가매수</th>
@@ -810,7 +997,7 @@
 <div id="configModal">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
         <b style="font-size:14px; color:#1e293b;">⚙️ GitHub Gist 연동 설정</b>
-        <button class="btn-delete" style="padding: 2px;" onclick="toggleModal(false)">
+                    <button class="btn-delete" style="padding: 2px;" onclick="toggleModal(false)" aria-label="닫기">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
     </div>
@@ -842,6 +1029,10 @@
     const LOCAL_STORAGE_KEY = 'stock_planner_data';
     // 거래 수수료율 (매수/매도 각 0.03% 왕복 반영)
     const FEE_RATE = 0.0003;
+    // 시세 조회 실패한 종목 인덱스 (재시도 버튼 표시용)
+    const priceFailed = new Set();
+    // calculate() 포커스 복원 중에는 전체선택하지 않도록
+    let _restoringFocus = false;
 
     // 유틸리티: 숫자 콤마 포맷팅 및 역포맷팅
     function fN(n) { 
@@ -991,9 +1182,11 @@
                 s.curr = price;
                 if (prevClose !== null) s.prevClose = prevClose;
                 if (via) viaCount[via] = (viaCount[via] || 0) + 1;
+                priceFailed.delete(i);
                 paintPriceCell(i, price, true, prevClose);
                 return 'ok';
             } else {
+                priceFailed.add(i);
                 failedIdx.push({ s, i, raw });
                 paintPriceCell(i, null, false, null);
                 return lastNotFound ? 'notfound' : 'error';
@@ -1033,6 +1226,7 @@
                         overloaded = true;
                         for (const rest of list.slice(passDone)) {
                             failedIdx.push({ s: rest.s, i: rest.i, raw: String(rest.s.code).toUpperCase().trim() });
+                            priceFailed.add(rest.i);
                         }
                         break;
                     }
@@ -1078,6 +1272,39 @@
                 `<span class="fail">실패 ${failed.length}건 (${failed.map(escapeHtml).join(', ')})</span> — ${escapeHtml(hint)}`;
             toast(`일부 실패 (${failed.length}건): ${failed.join(', ')}`, 'error');
         }
+    }
+
+    // 단일 종목 시세 재시도 (실패 행의 [재시도] 버튼)
+    async function retryPrice(i) {
+        if (_fetching) return;
+        const s = stocks[i];
+        if (!s) return;
+        const raw = String(s.code || '').toUpperCase().trim();
+        if (!raw) { toast('종목 코드를 먼저 입력하세요.', 'error'); return; }
+        _fetching = true;
+        const tr = document.querySelector(`#stock-curr-${CSS.escape(String(i))}`)?.closest('tr');
+        if (tr) tr.classList.add('price-loading');
+        const proxies = getProxies();
+        const candidates = raw.includes('.') ? [raw] : [raw + '.KS', raw + '.KQ'];
+        let ok = false;
+        for (const fCode of candidates) {
+            const r = await queryYahoo(fCode, proxies, `[재시도:${raw}]`);
+            if (r.price !== undefined) {
+                s.curr = r.price;
+                if (typeof r.prevClose === 'number') s.prevClose = r.prevClose;
+                ok = true;
+                break;
+            }
+            if (!r.notFound) break;
+        }
+        _fetching = false;
+        if (ok) {
+            priceFailed.delete(i);
+            toast(`시세 재시도 성공: ${s.name || raw}`, 'success');
+        } else {
+            toast(`시세 조회 실패: ${raw} — 잠시 후 다시 시도하세요.`, 'error');
+        }
+        calculate();
     }
 
     // 프록시 목록 (전용이 있으면 맨 먼저, 나머지는 과거 성공률 순)
@@ -1309,6 +1536,10 @@
         const totalEval = stocks.reduce((a, s) => a + (pN(s.curr) * pN(s.qty)), 0);
         const afterTotal = totalEval + monAvail;
         
+        // 목표 비중 합계 (렌더 전에 계산 → 행 단위 경고에 사용)
+        const targetSum = stocks.reduce((a, s) => a + pN(s.target), 0);
+        const targetMis = stocks.length > 0 && Math.abs(targetSum - 100) > 0.001;
+
         let idealBuys = [];
         let positiveSum = 0;
 
@@ -1335,6 +1566,32 @@
         pcBody.innerHTML = '';
         pcFoot.innerHTML = '';
         mobBody.innerHTML = '';
+
+        // 빈 상태 (종목 0건)
+        if (stocks.length === 0) {
+            const emptyHtml = `
+                <div class="empty-state">
+                    <div class="empty-icon">📊</div>
+                    <div class="empty-title">아직 등록된 종목이 없습니다</div>
+                    <div class="empty-desc">종목을 추가하고 매입액·수량을 입력하면<br>평단가와 목표 배분이 자동 계산됩니다.</div>
+                    <button class="btn btn-main" onclick="addStock()">+ 첫 종목 추가</button>
+                </div>`;
+            pcBody.innerHTML = `<tr><td colspan="11">${emptyHtml}</td></tr>`;
+            mobBody.innerHTML = emptyHtml;
+            const warnEmpty = document.getElementById('targetWarn');
+            warnEmpty.style.display = 'none';
+            warnEmpty.textContent = '';
+            saveToLocalSoon();
+            if (activeId) {
+                const el = document.getElementById(activeId);
+                if (el) {
+                    _restoringFocus = true;
+                    el.focus();
+                    _restoringFocus = false;
+                }
+            }
+            return;
+        }
 
         let totalSugSum = 0;
 
@@ -1373,19 +1630,21 @@
 
             // 데스크톱 테이블 렌더링
             const tr = document.createElement('tr');
+            if (priceFailed.has(i)) tr.classList.add('price-failed');
+            const warnCls = targetMis ? ' input-warn' : '';
             tr.innerHTML = `
                 <td><input type="text" id="stock-code-${i}" value="${escapeHtml(s.code)}" class="input-center" onchange="upd(${i},'code',this.value)"></td>
                 <td><input type="text" id="stock-name-${i}" value="${escapeHtml(s.name)}" class="input-left" onchange="upd(${i},'name',this.value)"></td>
-                <td><input type="text" id="stock-buy-${i}" value="${fN(s.buy)}" class="input-right" inputmode="decimal" onchange="updF(${i},'buy',this)">${qtyAmt > 0 ? `<div style="margin-top:4px; font-size:10.5px; color:#8B8494; text-align:right; font-variant-numeric:tabular-nums;" title="수수료 포함 실단가 @${fN(netUnitBuy)}원">평단가 @${fN(unitBuy)}원</div>` : ''}</td>
+                <td><input type="text" id="stock-buy-${i}" value="${fN(s.buy)}" class="input-right" inputmode="decimal" onchange="updF(${i},'buy',this)">${qtyAmt > 0 ? `<div style="margin-top:4px; text-align:right;"><span class="unit-price" title="수수료 포함 실단가 @${fN(netUnitBuy)}원 (매수수수료 0.03% 포함)">평단가 @${fN(unitBuy)}원</span></div>` : ''}</td>
                 <td><input type="text" id="stock-qty-${i}" value="${fN(s.qty)}" class="input-right" inputmode="decimal" onchange="updF(${i},'qty',this)"></td>
-                <td class="cell-right"><input type="text" id="stock-curr-${i}" value="${fN(s.curr)}" class="input-right" inputmode="decimal" onchange="updF(${i},'curr',this)"><div class="chg-wrap">${chg ? `<span id="stock-chg-${i}" class="${chg.cls} chg-badge">${chg.txt}</span>` : `<span id="stock-chg-${i}" class="chg-badge" style="display:none;"></span>`}</div></td>
+                <td class="cell-right"><input type="text" id="stock-curr-${i}" value="${fN(s.curr)}" class="input-right" inputmode="decimal" onchange="updF(${i},'curr',this)"><div class="chg-wrap">${chg ? `<span id="stock-chg-${i}" class="${chg.cls} chg-badge">${chg.txt}</span>` : `<span id="stock-chg-${i}" class="chg-badge" style="display:none;"></span>`}${priceFailed.has(i) ? `<button type="button" class="btn-retry" onclick="retryPrice(${i})" title="이 종목 시세 재시도">재시도</button>` : ''}</div></td>
                 <td style="text-align: right; font-weight: 500;" title="실수령액(매도수수료 차감 후): ${fN(netEv)}원">${fN(ev)}</td>
-                <td class="cell-right"><div class="cell-stack"><span class="${pClass}" title="수수료 차감 전: ${profitSign}${fN(grossProfit)}원 / 매도수수료 ${fN(Math.round(fee))}원 차감">${pRate > 0 ? '+' : ''}${pRate}%</span><span class="profit-amt ${profitCls}">${profitSign}${fN(profitAmt)}</span><span style="font-size:10px; color:#94a3b8; font-weight:400;" title="매도수수료(0.03%) ${fN(Math.round(sellFee))}원 차감">수수료 ${fN(Math.round(fee))}원 차감</span></div></td>
+                <td class="cell-right"><div class="cell-stack"><span class="${pClass}" title="수수료 차감 전: ${profitSign}${fN(grossProfit)}원 / 매도수수료 ${fN(Math.round(fee))}원 차감 (손익률은 수수료 반영)">${pRate > 0 ? '+' : ''}${pRate}%</span><span class="profit-amt ${profitCls}" title="매도수수료(0.03%) ${fN(Math.round(sellFee))}원 차감 후">${profitSign}${fN(profitAmt)}</span></div></td>
                 <td style="text-align: right; font-weight: 500; color: #475569;">${weight}%</td>
-                <td><input type="text" id="stock-target-${i}" value="${s.target}" class="input-center" onchange="upd(${i},'target',pN(this.value))"></td>
+                <td><input type="text" id="stock-target-${i}" value="${s.target}" class="input-center${warnCls}" onchange="upd(${i},'target',pN(this.value))"></td>
                 <td style="text-align: right; color:#4f46e5; font-weight:700">${fN(Math.round(buySug))}</td>
                 <td>
-                    <button class="btn-delete" onclick="del(${i})" title="삭제">
+                    <button class="btn-delete" onclick="del(${i})" title="삭제" aria-label="종목 삭제">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
                     </button>
                 </td>`;
@@ -1394,10 +1653,11 @@
             // 모바일 반응형 카드 렌더링
             const card = document.createElement('div');
             card.className = 'stock-card';
+            if (priceFailed.has(i)) card.style.borderColor = 'rgba(220, 38, 38, .45)';
             card.innerHTML = `
                 <div class="card-row" style="align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; margin-bottom: 10px;">
                     <span style="font-weight:700; font-size:14px; color:#1e293b;">📌 ${escapeHtml(s.name) || ('종목 #' + (i+1))}</span>
-                    <button class="btn-delete" onclick="del(${i})" title="삭제">
+                    <button class="btn-delete" onclick="del(${i})" title="삭제" aria-label="종목 삭제">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                     </button>
                 </div>
@@ -1413,7 +1673,7 @@
                     <div>
                         <span class="label">매입액</span>
                         <input type="text" id="mob-stock-buy-${i}" value="${fN(s.buy)}" class="input-right" inputmode="decimal" onchange="updF(${i},'buy',this)">
-                        ${qtyAmt > 0 ? `<div style="margin-top:4px; font-size:10.5px; color:#8B8494; text-align:right;" title="수수료 포함 실단가 @${fN(netUnitBuy)}원">평단가 @${fN(unitBuy)}원</div>` : ''}
+                        ${qtyAmt > 0 ? `<div style="margin-top:4px; text-align:right;"><span class="unit-price" title="수수료 포함 실단가 @${fN(netUnitBuy)}원 (매수수수료 0.03% 포함)">평단가 @${fN(unitBuy)}원</span></div>` : ''}
                     </div>
                     <div>
                         <span class="label">수량</span>
@@ -1422,11 +1682,11 @@
                     <div>
                         <span class="label">현재가</span>
                         <input type="text" id="mob-stock-curr-${i}" value="${fN(s.curr)}" class="input-right" inputmode="decimal" onchange="updF(${i},'curr',this)">
-                        <div style="margin-top:4px; text-align:right;">${chg ? `<span id="mob-stock-chg-${i}" class="${chg.cls} chg-badge">${chg.txt}</span>` : `<span id="mob-stock-chg-${i}" class="chg-badge" style="display:none;"></span>`}</div>
+                        <div style="margin-top:4px; text-align:right;">${chg ? `<span id="mob-stock-chg-${i}" class="${chg.cls} chg-badge">${chg.txt}</span>` : `<span id="mob-stock-chg-${i}" class="chg-badge" style="display:none;"></span>`}${priceFailed.has(i) ? `<button type="button" class="btn-retry" onclick="retryPrice(${i})" title="이 종목 시세 재시도">재시도</button>` : ''}</div>
                     </div>
                     <div>
                         <span class="label">목표%</span>
-                        <input type="text" id="mob-stock-target-${i}" value="${s.target}" class="input-center" onchange="upd(${i},'target',pN(this.value))">
+                        <input type="text" id="mob-stock-target-${i}" value="${s.target}" class="input-center${warnCls}" onchange="upd(${i},'target',pN(this.value))">
                     </div>
                 </div>
                 <div class="card-row" style="margin-top: 12px; padding-top: 8px; border-top: 1px dashed #f1f5f9;">
@@ -1435,7 +1695,7 @@
                 </div>
                 <div class="card-row">
                     <span class="label" style="font-size:11px; color:#64748b;">손익 / 비중 (수수료반영)</span>
-                    <span style="text-align:right;"><span class="${pClass}">${pRate > 0 ? '+' : ''}${pRate}%</span> / <b style="color: #475569;">${weight}%</b><span class="profit-amt ${profitCls}">${profitSign}${fN(profitAmt)}원</span><span style="display:block; font-size:10px; color:#94a3b8;">수수료 ${fN(Math.round(fee))}원 차감</span></span>
+                    <span style="text-align:right;"><span class="${pClass}" title="매도수수료 ${fN(Math.round(sellFee))}원 차감">${pRate > 0 ? '+' : ''}${pRate}%</span> / <b style="color: #475569;">${weight}%</b><span class="profit-amt ${profitCls}">${profitSign}${fN(profitAmt)}원</span></span>
                 </div>
                 <div class="card-row" style="border-bottom:none; padding-bottom:0; margin-bottom:0; font-weight:bold; font-size:13px; align-items:center;">
                     <span class="label" style="color:#4f46e5; font-weight:700; margin-bottom:0;">추가매수 추천</span>
@@ -1500,10 +1760,9 @@
         `;
         mobBody.appendChild(mobSummary);
 
-        // 11. 목표 비중 합계 검증 (100%가 아니면 경고)
-        const targetSum = stocks.reduce((a, s) => a + pN(s.target), 0);
+        // 11. 목표 비중 합계 검증 (100%가 아니면 경고 — 행 단위 입력도 input-warn 처리됨)
         const warnEl = document.getElementById('targetWarn');
-        if (stocks.length > 0 && Math.abs(targetSum - 100) > 0.001) {
+        if (targetMis) {
             warnEl.style.display = 'block';
             warnEl.textContent = `⚠️ 목표 비중 합계가 ${targetSum}%입니다. 100%에 맞춰 조정하세요. (현재 추가매수는 입력 비율대로 비례 배분됩니다)`;
         } else {
@@ -1518,12 +1777,14 @@
         if (activeId) {
             const el = document.getElementById(activeId);
             if (el) {
+                _restoringFocus = true;
                 el.focus();
                 if (cursorStart !== null && cursorEnd !== null && (el.type === 'text' || el.type === 'password' || el.type === 'tel' || el.type === 'url')) {
                     try {
                         el.setSelectionRange(cursorStart, cursorEnd);
                     } catch (e) {}
                 }
+                _restoringFocus = false;
             }
         }
     }
@@ -1625,7 +1886,6 @@
         document.getElementById('ghToken').value = localStorage.getItem('ghToken') || "";
         document.getElementById('gistId').value = localStorage.getItem('gistId') || "";
         document.getElementById('proxyUrl').value = localStorage.getItem('proxyUrl') || "";
-
         // 1. 로컬 스토리지 데이터 먼저 로드 (없으면 기준월=현재 월)
         const loadedFromLocal = loadFromLocal();
         if (!loadedFromLocal) {
@@ -1649,6 +1909,16 @@
 
         // 4. Gist 연동 설정이 되어 있다면 백그라운드에서 최신본 로드
         loadFromGist();
+    });
+
+    // 숫자 입력 포커스 시 전체선택 (calculate() 포커스 복원 중에는 제외)
+    document.addEventListener('focusin', (e) => {
+        if (_restoringFocus) return;
+        const t = e.target;
+        if (t && t.tagName === 'INPUT' && t.type === 'text' &&
+            (t.inputMode === 'decimal' || t.id === 'totalBudget')) {
+            setTimeout(() => { try { t.select(); } catch (err) {} }, 0);
+        }
     });
 </script>
 </body>
