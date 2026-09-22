@@ -845,7 +845,7 @@
 
     // 유틸리티: 숫자 콤마 포맷팅 및 역포맷팅
     function fN(n) { 
-        return Math.floor(n).toLocaleString(); 
+        return Math.round(n).toLocaleString(); 
     }
     
     function pN(s) { 
@@ -1376,7 +1376,7 @@
             tr.innerHTML = `
                 <td><input type="text" id="stock-code-${i}" value="${escapeHtml(s.code)}" class="input-center" onchange="upd(${i},'code',this.value)"></td>
                 <td><input type="text" id="stock-name-${i}" value="${escapeHtml(s.name)}" class="input-left" onchange="upd(${i},'name',this.value)"></td>
-                <td><input type="text" id="stock-buy-${i}" value="${fN(s.buy)}" class="input-right" inputmode="decimal" onchange="updF(${i},'buy',this)">${qtyAmt > 0 ? `<div style="margin-top:4px; font-size:10.5px; color:#8B8494; text-align:right; font-variant-numeric:tabular-nums;" title="수수료 전 매입단가 @${fN(unitBuy)}원">실단가 @${fN(netUnitBuy)}원</div>` : ''}</td>
+                <td><input type="text" id="stock-buy-${i}" value="${fN(s.buy)}" class="input-right" inputmode="decimal" onchange="updF(${i},'buy',this)">${qtyAmt > 0 ? `<div style="margin-top:4px; font-size:10.5px; color:#8B8494; text-align:right; font-variant-numeric:tabular-nums;" title="수수료 포함 실단가 @${fN(netUnitBuy)}원">평단가 @${fN(unitBuy)}원</div>` : ''}</td>
                 <td><input type="text" id="stock-qty-${i}" value="${fN(s.qty)}" class="input-right" inputmode="decimal" onchange="updF(${i},'qty',this)"></td>
                 <td class="cell-right"><input type="text" id="stock-curr-${i}" value="${fN(s.curr)}" class="input-right" inputmode="decimal" onchange="updF(${i},'curr',this)"><div class="chg-wrap">${chg ? `<span id="stock-chg-${i}" class="${chg.cls} chg-badge">${chg.txt}</span>` : `<span id="stock-chg-${i}" class="chg-badge" style="display:none;"></span>`}</div></td>
                 <td style="text-align: right; font-weight: 500;" title="실수령액(매도수수료 차감 후): ${fN(netEv)}원">${fN(ev)}</td>
@@ -1413,7 +1413,7 @@
                     <div>
                         <span class="label">매입액</span>
                         <input type="text" id="mob-stock-buy-${i}" value="${fN(s.buy)}" class="input-right" inputmode="decimal" onchange="updF(${i},'buy',this)">
-                        ${qtyAmt > 0 ? `<div style="margin-top:4px; font-size:10.5px; color:#8B8494; text-align:right;">실단가 @${fN(netUnitBuy)}원</div>` : ''}
+                        ${qtyAmt > 0 ? `<div style="margin-top:4px; font-size:10.5px; color:#8B8494; text-align:right;" title="수수료 포함 실단가 @${fN(netUnitBuy)}원">평단가 @${fN(unitBuy)}원</div>` : ''}
                     </div>
                     <div>
                         <span class="label">수량</span>
