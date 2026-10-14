@@ -910,7 +910,8 @@
         <div class="summary-grid">
             <div class="stat-box">
                 <span class="label">연간 투자 예산</span>
-                <input type="text" id="totalBudget" value="20,000,000" onchange="uiFormat(this)">
+                <input type="text" id="totalBudget" value="20,000,000" inputmode="decimal" onchange="uiFormat(this)">
+                <span class="stat-help">올해 한도 (ISA 기본 2,000만)</span>
             </div>
             <div class="stat-box">
                 <span class="label">전년 이월 한도</span>
@@ -948,6 +949,7 @@
                     <option value="11">11월</option>
                     <option value="12">12월</option>
                 </select>
+                <span class="stat-help">누적가용 계산 기준월</span>
             </div>
         </div>
         <div class="summary-title">② 집행 여력 <span class="sub">쓰는 돈이 아니라 넣을 수 있는 돈 기준</span></div>
