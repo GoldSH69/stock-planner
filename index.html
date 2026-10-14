@@ -616,6 +616,21 @@
         .stat-box.stat-accent .label { color: #6C5CE7 !important; font-weight: 700 !important; }
         .stat-box.stat-accent .value { color: #6C5CE7 !important; }
 
+        /* 한도/여력 섹션 구분 (전문가용 분리 표시) */
+        .summary-title {
+            font-size: 12px; font-weight: 800; color: #2A2431;
+            margin: 14px 0 8px 2px; display: flex; align-items: baseline; gap: 8px;
+        }
+        .summary-title:first-child { margin-top: 2px; }
+        .summary-title .sub {
+            font-size: 11px; font-weight: 500; color: #8B8494;
+        }
+        .stat-help {
+            display: block; font-size: 10.5px; font-weight: 500; color: #8B8494;
+            margin-top: 6px; line-height: 1.5; text-align: right;
+        }
+        .stat-box .value.neg { color: #DC2626 !important; }
+
         /* 테이블 */
         .table-responsive {
             border: 1px solid rgba(255, 255, 255, .55) !important;
@@ -891,18 +906,31 @@
             <span id="priceStatus" role="status" aria-live="polite"></span>
             <span id="lastUpdated"></span>
         </div>
+        <div class="summary-title">① 한도 · 입금 관리 <span class="sub">ISA 한도는 입금 기준 — 수익 재투자 차감X · 출금해도 복원X</span></div>
         <div class="summary-grid">
             <div class="stat-box">
-                <span class="label">연간 총 투자 예산</span>
+                <span class="label">연간 투자 예산</span>
                 <input type="text" id="totalBudget" value="20,000,000" onchange="uiFormat(this)">
             </div>
-            <div class="stat-box" style="background-color: #f8fafc;">
-                <span class="label">기투자 금액</span>
-                <input type="text" id="currentInvested" value="0" readonly style="border-bottom:none; color:#475569; cursor:not-allowed;">
+            <div class="stat-box">
+                <span class="label">전년 이월 한도</span>
+                <input type="text" id="carryOver" value="0" inputmode="decimal" onchange="uiFormat(this)">
+                <span class="stat-help">작년 미사용분 (없으면 0)</span>
             </div>
             <div class="stat-box">
-                <span class="label">년간 잔여 투자금</span>
-                <div class="value" id="resRem">0</div>
+                <span class="label">올해 입금누계 D</span>
+                <input type="text" id="totalDeposited" value="0" inputmode="decimal" onchange="uiFormat(this)">
+                <span class="stat-help">1/1 이후 입금합 · 출금차감X</span>
+            </div>
+            <div class="stat-box">
+                <span class="label">올해 출금누계 W</span>
+                <input type="text" id="totalWithdrawn" value="0" inputmode="decimal" onchange="uiFormat(this)">
+                <span class="stat-help">없으면 0 · 전체수익용</span>
+            </div>
+            <div class="stat-box">
+                <span class="label">예수금 C (현금)</span>
+                <input type="text" id="cashBalance" value="0" inputmode="decimal" onchange="uiFormat(this)">
+                <span class="stat-help">계좌 현금 잔고</span>
             </div>
             <div class="stat-box">
                 <span class="label">기준 월 선택</span>
@@ -921,13 +949,33 @@
                     <option value="12">12월</option>
                 </select>
             </div>
+        </div>
+        <div class="summary-title">② 집행 여력 <span class="sub">쓰는 돈이 아니라 넣을 수 있는 돈 기준</span></div>
+        <div class="summary-grid">
             <div class="stat-box">
-                <span class="label">누적 가용 투자금</span>
+                <span class="label">연간 잔여 한도</span>
+                <div class="value" id="resRem">0</div>
+                <span class="stat-help">연간예산 + 이월 − 입금누계</span>
+            </div>
+            <div class="stat-box">
+                <span class="label" id="accumLabel">누적 가용 투자금</span>
                 <div class="value" id="accumBudget" style="color:#475569;">0</div>
+                <span class="stat-help">월예산 × 기준월 + 이월</span>
+            </div>
+            <div class="stat-box">
+                <span class="label">당월 잔여 (입금여력)</span>
+                <div class="value" id="resMonAvail">0</div>
+                <span class="stat-help">누적가용 − 입금누계 (음수=앞당김)</span>
             </div>
             <div class="stat-box stat-accent">
-                <span class="label">당월 잔여 투자금</span>
-                <div class="value" id="resMonAvail" style="font-size: 20px;">0</div>
+                <span class="label">실제 매수여력</span>
+                <div class="value" id="realBuyPower" style="font-size: 20px;">0</div>
+                <span class="stat-help">예수금 + 당월잔여(0 미만은 0)</span>
+            </div>
+            <div class="stat-box">
+                <span class="label">계좌 전체수익</span>
+                <div class="value" id="totalNetProfit">0</div>
+                <span class="stat-help">(예수금+평가액) − 순입금</span>
             </div>
         </div>
     </div>
@@ -1068,6 +1116,10 @@
         const data = {
             stocks,
             totalBudget: pN(document.getElementById('totalBudget').value),
+            carryOver: pN(document.getElementById('carryOver').value),
+            totalDeposited: pN(document.getElementById('totalDeposited').value),
+            totalWithdrawn: pN(document.getElementById('totalWithdrawn').value),
+            cashBalance: pN(document.getElementById('cashBalance').value),
             planMonth: parseInt(document.getElementById('planMonth').value),
             memo: document.getElementById('memoArea').value
         };
@@ -1082,6 +1134,12 @@
                 const c = JSON.parse(localData);
                 stocks = c.stocks || [];
                 document.getElementById('totalBudget').value = fN(c.totalBudget !== undefined ? c.totalBudget : 20000000);
+                document.getElementById('carryOver').value = fN(c.carryOver !== undefined ? c.carryOver : 0);
+                // 구버전 데이터 마이그레이션: 입금누계가 없으면 매입액 합계로 1회 초기화
+                const migBuy = stocks.reduce((a, s) => a + pN(s.buy), 0);
+                document.getElementById('totalDeposited').value = fN(c.totalDeposited !== undefined ? c.totalDeposited : migBuy);
+                document.getElementById('totalWithdrawn').value = fN(c.totalWithdrawn !== undefined ? c.totalWithdrawn : 0);
+                document.getElementById('cashBalance').value = fN(c.cashBalance !== undefined ? c.cashBalance : 0);
                 document.getElementById('planMonth').value = c.planMonth || (new Date().getMonth() + 1);
                 document.getElementById('memoArea').value = c.memo || "";
                 calculate();
@@ -1460,6 +1518,11 @@
                 const c = JSON.parse(data.files[FILENAME].content);
                 stocks = c.stocks || [];
                 document.getElementById('totalBudget').value = fN(c.totalBudget !== undefined ? c.totalBudget : 20000000);
+                document.getElementById('carryOver').value = fN(c.carryOver !== undefined ? c.carryOver : 0);
+                const migBuy2 = stocks.reduce((a, s) => a + pN(s.buy), 0);
+                document.getElementById('totalDeposited').value = fN(c.totalDeposited !== undefined ? c.totalDeposited : migBuy2);
+                document.getElementById('totalWithdrawn').value = fN(c.totalWithdrawn !== undefined ? c.totalWithdrawn : 0);
+                document.getElementById('cashBalance').value = fN(c.cashBalance !== undefined ? c.cashBalance : 0);
                 document.getElementById('planMonth').value = c.planMonth || (new Date().getMonth() + 1);
                 document.getElementById('memoArea').value = c.memo || "";
                 calculate();
@@ -1477,6 +1540,10 @@
         const payload = { files: { [FILENAME]: { content: JSON.stringify({
             stocks, 
             totalBudget: pN(document.getElementById('totalBudget').value),
+            carryOver: pN(document.getElementById('carryOver').value),
+            totalDeposited: pN(document.getElementById('totalDeposited').value),
+            totalWithdrawn: pN(document.getElementById('totalWithdrawn').value),
+            cashBalance: pN(document.getElementById('cashBalance').value),
             planMonth: parseInt(document.getElementById('planMonth').value),
             memo: document.getElementById('memoArea').value
         }) } } };
@@ -1509,32 +1576,58 @@
             } catch (e) {}
         }
 
-        // 2. 상단 값 계산 및 설정
+        // 2. 한도·입금 입력값 (수동 입력, ISA 입금 기준)
+        // D=올해 입금누계(출금차감X, 수익재투자 포함X), W=출금누계, C=예수금, R0=전년이월
         const budget = pN(document.getElementById('totalBudget').value);
-        
-        // 3. 기투자 금액 = 매입액 합계 (totalBuySum)
-        const totalBuySum = stocks.reduce((a, s) => a + pN(s.buy), 0);
-        document.getElementById('currentInvested').value = fN(totalBuySum);
-
-        // 4. 년간 잔여 투자금
-        const annualRemaining = budget - totalBuySum;
-        document.getElementById('resRem').innerText = fN(annualRemaining);
-
-        // 5. 누적 투자금 분배 계산 (월별 분배 & 이월 로직)
+        const carry = pN(document.getElementById('carryOver').value);
+        const dep = pN(document.getElementById('totalDeposited').value);
+        const wd = pN(document.getElementById('totalWithdrawn').value);
+        const cash = pN(document.getElementById('cashBalance').value);
         const m = parseInt(document.getElementById('planMonth').value) || (new Date().getMonth() + 1);
-        const accumBudget = (budget / 12) * m;
+
+        // 성과용 참고값 (한도계산에 사용 금지): 보유종목 매입액 합계
+        const totalBuySum = stocks.reduce((a, s) => a + pN(s.buy), 0);
+        const totalEvalEarly = stocks.reduce((a, s) => a + (pN(s.curr) * pN(s.qty)), 0);
+
+        // 3. 연간 잔여 한도 = 연간예산 + 이월 - 입금누계 (출금해도 복원X)
+        const annualRemaining = (budget + carry) - dep;
+        const resRemEl = document.getElementById('resRem');
+        resRemEl.innerText = fN(annualRemaining);
+        resRemEl.classList.toggle('neg', annualRemaining < 0);
+
+        // 4. 누적 가용 (월별 분배 + 이월 전액 가용): 월예산*m + 이월
+        // 이월분은 1월부터 전액 사용 가능하므로 12등분하지 않음
+        const accumBudget = (budget / 12) * m + carry;
         document.getElementById('accumBudget').innerText = fN(accumBudget);
+        const accumLabel = document.getElementById('accumLabel');
+        if (accumLabel) accumLabel.innerText = `${m}월 누적가용`;
 
-        // 6. 당월 잔여 투자금 (이월 포함) = 누적 가용 투자금 - 기투자 금액
-        const thisMonthAvailable = accumBudget - totalBuySum;
-        document.getElementById('resMonAvail').innerText = fN(thisMonthAvailable);
+        // 5. 당월 잔여 (입금여력) = 누적가용 - 입금누계 (음수=앞당겨 씀, 0으로 자르지 않고 표시)
+        const monthRemain = accumBudget - dep;
+        const resMonEl = document.getElementById('resMonAvail');
+        resMonEl.innerText = fN(monthRemain);
+        resMonEl.classList.toggle('neg', monthRemain < 0);
 
-        // 음수 투자 방지 (초과 투자된 경우 당월 가용 투자금은 0으로 한정)
-        const monAvail = Math.max(0, thisMonthAvailable);
+        // 6. 실제 매수여력 = 예수금 + max(0, 당월잔여)
+        // 예수금은 이미 납입된 돈(C), 당월잔여는 앞으로 넣어도 되는 돈
+        const deployable = cash + Math.max(0, monthRemain);
+        document.getElementById('realBuyPower').innerText = fN(deployable);
 
-        // 7. 자산 재배분 1차 루프 - 이상적 매수 금액 도출
-        const totalEval = stocks.reduce((a, s) => a + (pN(s.curr) * pN(s.qty)), 0);
-        const afterTotal = totalEval + monAvail;
+        // 7. 계좌 전체수익 (실현+미실현+배당 포함) = (예수금+평가액) - 순입금(D-W)
+        // 보유 평가손익(매입-평가)과 분리 표시
+        const netDep = dep - wd;
+        const estAsset = cash + totalEvalEarly;
+        const netProfit = estAsset - netDep;
+        const netRate = netDep > 0 ? (netProfit / netDep * 100) : 0;
+        const netEl = document.getElementById('totalNetProfit');
+        const netSign = netProfit > 0 ? '+' : '';
+        netEl.innerText = `${netSign}${fN(netProfit)} (${netSign}${netRate.toFixed(2)}%)`;
+        netEl.classList.toggle('neg', netProfit < 0);
+
+        // 8. 자산 재배분 1차 루프 - 이상적 매수 금액 도출
+        // 목표 총액 = 현재 평가액 + 실제 매수여력(현금+앞으로 넣을 돈)
+        const totalEval = totalEvalEarly;
+        const afterTotal = totalEval + deployable;
         
         // 목표 비중 합계 (렌더 전에 계산 → 행 단위 경고에 사용)
         const targetSum = stocks.reduce((a, s) => a + pN(s.target), 0);
@@ -1619,10 +1712,10 @@
             const weight = totalEval > 0 ? (ev / totalEval * 100).toFixed(1) : 0;
             const chg = chgInfo(s);
 
-            // 추가매수 비례 배분 공식
+            // 추가매수 비례 배분 공식 (상한 = 실제 매수여력)
             let buySug = 0;
             if (idealBuy > 0 && positiveSum > 0) {
-                buySug = (idealBuy / positiveSum) * monAvail;
+                buySug = (idealBuy / positiveSum) * deployable;
             }
 
             const pClass = pRate < 0 ? 'loss' : 'gain';
@@ -1715,21 +1808,40 @@
         const totalProfitCls = totalProfit < 0 ? 'profit-minus' : (totalProfit > 0 ? 'profit-plus' : 'profit-zero');
         const totalProfitSign = totalProfit > 0 ? '+' : '';
         
-        // PC 합계 행 렌더링
+        // PC 합계 행 렌더링 (1행: 보유종목 기준 / 2행: 예수금 포함 계좌 전체)
         const ft = document.createElement('tr');
         ft.innerHTML = `
-            <td colspan="2" style="font-weight: 600; color: #475569;">포트폴리오 합계</td>
+            <td colspan="2" style="font-weight: 600; color: #475569;" title="현재 보유종목만의 매입·평가 (실현손익·배당 제외)">보유 합계</td>
             <td style="text-align: right; font-weight: 600;">${fN(totalBuySum)}</td>
             <td>-</td>
             <td>-</td>
             <td style="text-align: right; font-weight: 600;" title="실수령액(매도수수료 차감 후): ${fN(totalNetEv)}">${fN(totalEval)}</td>
-            <td style="text-align: right; font-weight: 600;"><div class="cell-stack"><span class="${totalClass}" title="수수료 차감 전: ${totalProfitSign}${fN(totalEval - totalBuySum)}원 / 매도수수료 ${fN(Math.round(totalFee))}원 차감">${totalRate > 0 ? '+' : ''}${totalRate}%</span><span class="profit-amt ${totalProfitCls}">${totalProfitSign}${fN(totalProfit)}</span><span style="font-size:10px; color:#94a3b8; font-weight:400;">수수료 ${fN(Math.round(totalFee))}원 차감</span></div></td>
+            <td style="text-align: right; font-weight: 600;"><div class="cell-stack"><span class="${totalClass}" title="수수료 차감 전: ${totalProfitSign}${fN(totalEval - totalBuySum)}원 / 매도수수료 ${fN(Math.round(totalFee))}원 차감">${totalRate > 0 ? '+' : ''}${totalRate}%</span><span class="profit-amt ${totalProfitCls}">${totalProfitSign}${fN(totalProfit)}</span><span style="font-size:10px; color:#94a3b8; font-weight:400;">보유 평가손익</span></div></td>
             <td>-</td>
             <td>-</td> 
             <td style="text-align: right; color:#4f46e5; font-weight:700">${fN(Math.round(totalSugSum))}</td>
             <td></td>
         `;
         pcFoot.appendChild(ft);
+        // 2행: 계좌 전체 (실현+배당 포함) = (예수금+평가액) - 순입금
+        const netRate2 = netDep > 0 ? (netProfit / netDep * 100) : 0;
+        const netCls2 = netProfit < 0 ? 'loss' : 'gain';
+        const netPCls2 = netProfit < 0 ? 'profit-minus' : (netProfit > 0 ? 'profit-plus' : 'profit-zero');
+        const netSign2 = netProfit > 0 ? '+' : '';
+        const ft2 = document.createElement('tr');
+        ft2.innerHTML = `
+            <td colspan="2" style="font-weight: 600; color: #475569;" title="실현손익·배당 포함 전체 성과 = (예수금 ${fN(cash)} + 평가액 ${fN(totalEval)}) - 순입금 ${fN(netDep)}">계좌 전체 (현금포함)</td>
+            <td style="text-align: right; font-weight: 600;" title="순입금 = 입금누계 ${fN(dep)} - 출금누계 ${fN(wd)}">${fN(netDep)}</td>
+            <td>-</td>
+            <td>-</td>
+            <td style="text-align: right; font-weight: 600;" title="추정자산 = 예수금 + 평가액 (수수료·세전)">${fN(estAsset)}</td>
+            <td style="text-align: right; font-weight: 600;"><div class="cell-stack"><span class="${netCls2}">${netSign2}${netRate2.toFixed(2)}%</span><span class="profit-amt ${netPCls2}">${netSign2}${fN(netProfit)}</span><span style="font-size:10px; color:#94a3b8; font-weight:400;">실현+배당 포함</span></div></td>
+            <td>-</td>
+            <td>-</td>
+            <td style="text-align: right; color:#94a3b8; font-weight:500;" title="실제 매수여력 = 예수금 + 당월잔여">여력 ${fN(deployable)}</td>
+            <td></td>
+        `;
+        pcFoot.appendChild(ft2);
         
         // 모바일 합계 카드 렌더링
         const mobSummary = document.createElement('div');
@@ -1739,7 +1851,7 @@
         mobSummary.style.boxShadow = 'none';
         mobSummary.innerHTML = `
             <div class="card-row" style="border-bottom: 1px solid #cbd5e1; padding-bottom: 6px; margin-bottom: 10px; font-weight:bold; font-size:12px; color: #475569;">
-                <span>📊 포트폴리오 합계</span>
+                <span>📊 보유 합계 (미실현 기준)</span>
             </div>
             <div class="card-row">
                 <span class="label" style="font-size:11px; color:#64748b;">총 매입액</span>
@@ -1750,8 +1862,12 @@
                 <span style="font-weight:600; color:#1e293b;">${fN(totalEval)}원</span>
             </div>
             <div class="card-row">
-                <span class="label" style="font-size:11px; color:#64748b;">총 손익 (수수료반영)</span>
+                <span class="label" style="font-size:11px; color:#64748b;">보유 손익 (수수료반영)</span>
                 <span style="text-align:right;"><span class="${totalClass}"><b>${totalRate > 0 ? '+' : ''}${totalRate}%</b></span><span class="profit-amt ${totalProfitCls}">${totalProfitSign}${fN(totalProfit)}원</span><span style="display:block; font-size:10px; color:#94a3b8;">수수료 ${fN(Math.round(totalFee))}원 차감</span></span>
+            </div>
+            <div class="card-row">
+                <span class="label" style="font-size:11px; color:#64748b;">계좌 전체수익 (현금포함)</span>
+                <span style="text-align:right;"><span class="${netCls2}"><b>${netSign2}${netRate2.toFixed(2)}%</b></span><span class="profit-amt ${netPCls2}">${netSign2}${fN(netProfit)}원</span><span style="display:block; font-size:10px; color:#94a3b8;">실현+배당 포함</span></span>
             </div>
             <div class="card-row" style="border-bottom:none; padding-bottom:0; margin-bottom:0; font-weight:bold; font-size:13px; align-items:center;">
                 <span class="label" style="color:#4f46e5; font-weight:bold; margin-bottom:0;">총 추가매수액</span>
